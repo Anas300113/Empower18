@@ -29,3 +29,5 @@
 ## Notes for the next increment
 
 This checkpoint is a complete, clickable frontend MVP with realistic sample data and honest prototype labelling. Real account persistence, opportunity ingestion/verification workflows, live organisation links, and database-backed tracker state are intentionally left as the next increment; the existing server, Manus OAuth and Drizzle foundation are preserved for that work.
+
+- [x] **UI/UX Pro Max quality pass** — Apply the supplied guidance for accessibility, 44px+ touch targets, skip navigation, focus visibility, required form fields, explicit control labels, mobile safe-area behavior, predictable navigation, and reduced-motion support; re-run typecheck/build and confirm mobile screenshots after the changes.

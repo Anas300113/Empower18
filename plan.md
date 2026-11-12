@@ -53,3 +53,7 @@ The MVP uses the initialized React/Express/tRPC/Drizzle project. The frontend co
 ## Data and safety boundaries
 
 No opportunity is presented as live without a visible source, verification state, and last-checked date. Sample content is labelled as a prototype dataset. Mentoring and messaging are represented as safeguarded signposting, not open direct contact. AI tools are framed as editable suggestions, never as authors of achievements or qualifications.
+
+## UI/UX quality pass
+
+The interface was reviewed against the supplied UI/UX Pro Max priorities. The follow-up pass adds a keyboard skip link and stable main-content focus targets, increases primary and icon touch targets, adds explicit switch labels and expanded-state semantics, marks required onboarding fields, makes the marketplace filter control jump to the real filters, fixes the privacy destination, adds missing admin action labels, uses safe-area-friendly mobile navigation, and preserves reduced-motion behavior.

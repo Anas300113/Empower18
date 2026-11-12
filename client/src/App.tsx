@@ -27,5 +27,5 @@ function Router() {
 }
 
 export default function App() {
-  return <ErrorBoundary><ThemeProvider defaultTheme="light"><Toaster /><Router /></ThemeProvider></ErrorBoundary>;
+  return <ErrorBoundary><ThemeProvider defaultTheme="light"><Toaster /><a className="skip-link" href="#main-content">Skip to main content</a><Router /></ThemeProvider></ErrorBoundary>;
 }

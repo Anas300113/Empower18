@@ -30,7 +30,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main>
+      <main id="main-content" tabIndex={-1}>
         <section className="hero container-wide">
           <div className="hero-copy">
             <p className="eyebrow"><span className="eyebrow-dot" /> A clearer next step for Warwickshire</p>
@@ -92,7 +92,7 @@ export default function Home() {
         </section>
       </main>
 
-      <footer className="public-footer container-wide"><div className="brand-lockup"><span className="brand-mark"><Compass size={17} /></span><span><strong>Empower</strong><b>18</b></span></div><span>For young people finding a future that feels possible.</span><div className="footer-links"><a href="#support">Support</a><a href="#local">Warwickshire</a><a href="/privacy">Privacy</a></div></footer>
+      <footer className="public-footer container-wide"><div className="brand-lockup"><span className="brand-mark"><Compass size={17} /></span><span><strong>Empower</strong><b>18</b></span></div><span>For young people finding a future that feels possible.</span><div className="footer-links"><a href="#support">Support</a><a href="#local">Warwickshire</a><Link href="/settings">Privacy</Link></div></footer>
     </div>
   );
 }
