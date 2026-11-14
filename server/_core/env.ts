@@ -12,4 +12,5 @@ export const ENV = {
   // Supabase configuration
   get supabaseUrl() { return process.env.SUPABASE_URL ?? ""; },
   get supabaseServiceKey() { return process.env.SUPABASE_SECRET_KEY ?? ""; },
+  get supabasePublishableKey() { return process.env.SUPABASE_PUBLISHABLE_KEY ?? ""; },
 };

@@ -1,0 +1,81 @@
+const fs = require("fs");
+let content = `import { z } from "zod";
+import {
+  publicProcedure,
+  adminProcedure,
+  studentProcedure,
+  router,
+} from "../_core/trpc";
+import {
+  opportunities,
+  savedOpportunities,
+  studentApplications,
+  applicationEvents,
+  adminAuditLogs,
+} from "../../drizzle/schema";
+import { db } from "../index";
+import { eq, and, gte, lte, sql } from "drizzle-orm";
+
+export const opportunitiesRouter = router({
+  list: publicProcedure
+    .input(z.object({
+      limit: z.number().int().default(20).optional(),
+      offset: z.number().int().default(0).optional(),
+      status: z.enum(["draft", "pending_review", "verified", "needs_reverification", "rejected", "expired", "withdrawn", "closed"]).optional(),
+      type: z.enum(["apprenticeship", "degree_apprenticeship", "university", "higher_education", "t_level", "college", "vocational", "internship", "work_experience", "employment", "entry_level", "entrepreneurship", "self_employment", "fellowship", "scholarship", "competition", "volunteering", "event", "support"]).optional(),
+      district: z.string().optional(),
+      minAge: z.number().int().optional(),
+      maxAge: z.number().int().optional(),
+      search: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      const conditions: any[] = [];
+      if (input.status) conditions.push(eq(opportunities.status, input.status));
+      if (input.type) conditions.push(eq(opportunities.type, input.type));
+      if (input.district) conditions.push(eq(opportunities.district, input.district));
+      if (input.minAge !== undefined) conditions.push(gte(opportunities.minAge, input.minAge));
+      if (input.maxAge !== undefined) conditions.push(lte(opportunities.maxAge, input.maxAge));
+      if (input.search) {
+        conditions.push(sql`${opportunities.fullText} @@ to_tsquery('english', ${input.search})`);
+      }
+      const where = conditions.length > 0 ? and(...conditions) : undefined;
+      return await db
+        .select({
+          id: opportunities.id,
+          title: opportunities.title,
+          description: opportunities.description,
+          summary: opportunities.summary,
+          type: opportunities.type,
+          status: opportunities.status,
+          location: opportunities.location,
+          district: opportunities.district,
+          isRemoteEligible: opportunities.isRemoteEligible,
+          minAge: opportunities.minAge,
+          maxAge: opportunities.maxAge,
+          educationRequirements: opportunities.educationRequirements,
+          qualificationRequirements: opportunities.qualificationRequirements,
+          requiredSkills: opportunities.requiredSkills,
+          salaryMin: opportunities.salaryMin,
+          salaryMax: opportunities.salaryMax,
+          compensationText: opportunities.compensationText,
+          applicationDeadlineAt: opportunities.applicationDeadlineAt,
+          externalApplicationUrl: opportunities.externalApplicationUrl,
+          sourceId: opportunities.sourceId,
+          sourceRecordId: opportunities.sourceRecordId,
+          canonicalUrl: opportunities.canonicalUrl,
+          verifiedBy: opportunities.verifiedBy,
+          verifiedAt: opportunities.verifiedAt,
+          verificationEvidence: opportunities.verificationEvidence,
+          nextReviewAt: opportunities.nextReviewAt,
+          isPublished: opportunities.isPublished,
+          publishedAt: opportunities.publishedAt,
+          createdAt: opportunities.createdAt,
+          updatedAt: opportunities.updatedAt,
+        })
+        .from(opportunities)
+        .where(where)
+        .limit(input.limit + input.offset)
+        .offset(input.offset)
+        .orderBy(opportunities.createdAt.desc);
+    }),
+`,

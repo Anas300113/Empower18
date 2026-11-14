@@ -66,3 +66,34 @@ export async function verifySupabaseToken(
     return null;
   }
 }
+
+/**
+ * Creates a Supabase client scoped to a specific user's access token.
+ *
+ * This client respects Row Level Security (RLS) policies because it uses
+ * the user's own JWT. Use this for any database operations that should
+ * be constrained by RLS.
+ *
+ * @param accessToken - The user's Supabase access token (JWT)
+ */
+export function createSupabaseUserClient(accessToken: string): SupabaseClient {
+  if (!ENV.supabaseUrl) {
+    throw new Error("SUPABASE_URL is not configured");
+  }
+  if (!ENV.supabasePublishableKey) {
+    throw new Error("SUPABASE_PUBLISHABLE_KEY is not configured");
+  }
+
+  return createClient(ENV.supabaseUrl, ENV.supabasePublishableKey, {
+    global: {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    },
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    },
+  });
+}

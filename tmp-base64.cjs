@@ -1,0 +1,2 @@
+
+const base64Content = "aW1wb3J0IGZ1bmN0aW9uKCdFcnZlcnkgJ3YzJyksIHByb2plY3QoKTsKcmV0dXJuIEpTT04gKzogW119Cg==";

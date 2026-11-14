@@ -6,24 +6,48 @@ import {
   type User,
   type InsertUser,
 } from "../../drizzle/schema";
-import { ENV } from '../_core/env';
+import { ENV } from "../_core/env";
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Connection configuration
+//
+// Two distinct connection strings are supported:
+//   DATABASE_URL          — runtime connection (Supabase session pooler, port 6543)
+//   MIGRATION_DATABASE_URL— direct connection for migrations (port 5432)
+//
+// The runtime pool is sized for the Express server. Migrations use a separate
+// client so a long-running migration never starves request traffic.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const RUNTIME_URL = process.env.DATABASE_URL ?? "";
+const MIGRATION_URL = process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL ?? "";
+
+const POOL_MAX = Number(process.env.DATABASE_POOL_MAX ?? "10");
+const IDLE_TIMEOUT = Number(process.env.DATABASE_IDLE_TIMEOUT ?? "20");
+const CONNECT_TIMEOUT = Number(process.env.DATABASE_CONNECT_TIMEOUT ?? "10");
+
+function makePool(url: string) {
+  return postgres(url, {
+    max: POOL_MAX,
+    idle_timeout: IDLE_TIMEOUT,
+    connect_timeout: CONNECT_TIMEOUT,
+  });
+}
+
+let _runtimeSql: ReturnType<typeof postgres> | null = null;
+let _migrationSql: ReturnType<typeof postgres> | null = null;
 let _db: ReturnType<typeof drizzle> | null = null;
-let _sql: ReturnType<typeof postgres> | null = null;
 
 /**
- * Lazily create the drizzle instance and postgres connection so local tooling
- * can run without a DB. Uses the postgres-js driver for Supabase PostgreSQL.
+ * Lazily create the runtime drizzle instance + postgres pool.
+ * Returns null when no DATABASE_URL is configured so local tooling
+ * (builds, type-checks, tests) can run without a live database.
  */
 export async function getDb() {
-  if (!_db && process.env.DATABASE_URL) {
+  if (!_db && RUNTIME_URL) {
     try {
-      _sql = postgres(process.env.DATABASE_URL, {
-        max: 10,
-        idle_timeout: 20,
-        connect_timeout: 10,
-      });
-      _db = drizzle(_sql);
+      _runtimeSql = makePool(RUNTIME_URL);
+      _db = drizzle(_runtimeSql);
     } catch (error) {
       console.warn("[Database] Failed to connect:", error);
       _db = null;
@@ -32,33 +56,70 @@ export async function getDb() {
   return _db;
 }
 
+/**
+ * Runtime postgres-js client (connection pool). Use for application queries.
+ */
 export async function getSql() {
-  if (!_sql && process.env.DATABASE_URL) {
+  if (!_runtimeSql && RUNTIME_URL) {
     try {
-      _sql = postgres(process.env.DATABASE_URL, {
-        max: 10,
-        idle_timeout: 20,
-        connect_timeout: 10,
-      });
+      _runtimeSql = makePool(RUNTIME_URL);
+      if (!_db) _db = drizzle(_runtimeSql);
     } catch (error) {
-      console.warn("[Database] Failed to create sql client:", error);
-      _sql = null;
+      console.warn("[Database] Failed to create runtime sql client:", error);
+      _runtimeSql = null;
     }
   }
-  return _sql;
+  return _runtimeSql;
 }
 
-export async function closeDb() {
-  if (_sql) {
+/**
+ * Migration postgres-js client (direct connection, separate pool).
+ * Use ONLY for running schema migrations — never for request traffic.
+ */
+export async function getMigrationSql() {
+  if (!_migrationSql && MIGRATION_URL) {
     try {
-      await _sql.end();
-    } catch {
-      // ignore close errors
+      _migrationSql = makePool(MIGRATION_URL);
+    } catch (error) {
+      console.warn("[Database] Failed to create migration sql client:", error);
+      _migrationSql = null;
     }
-    _sql = null;
-    _db = null;
   }
+  return _migrationSql;
 }
+
+/**
+ * Gracefully shut down all pools. Call on process shutdown (SIGINT/SIGTERM).
+ */
+export async function closeDb() {
+  const closing: Promise<unknown>[] = [];
+
+  if (_runtimeSql) {
+    closing.push(
+      _runtimeSql.end({ timeout: 5 }).catch((error) => {
+        console.warn("[Database] Error closing runtime pool:", error);
+      })
+    );
+  }
+  if (_migrationSql) {
+    closing.push(
+      _migrationSql.end({ timeout: 5 }).catch((error) => {
+        console.warn("[Database] Error closing migration pool:", error);
+      })
+    );
+  }
+
+  await Promise.allSettled(closing);
+  _runtimeSql = null;
+  _migrationSql = null;
+  _db = null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Legacy user helpers (Manus OAuth → Supabase Auth transition)
+// These operate on the `users` table and will be removed once the
+// authentication migration is complete.
+// ─────────────────────────────────────────────────────────────────────────────
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -97,8 +158,8 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
-      values.role = 'admin';
-      updateSet.role = 'admin';
+      values.role = "admin";
+      updateSet.role = "admin";
     }
 
     if (!values.lastSignedIn) {
@@ -109,10 +170,13 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       updateSet.lastSignedIn = new Date();
     }
 
-    await db.insert(legacyUsers).values(values).onConflictDoUpdate({
-      target: legacyUsers.openId,
-      set: updateSet,
-    });
+    await db
+      .insert(legacyUsers)
+      .values(values)
+      .onConflictDoUpdate({
+        target: legacyUsers.openId,
+        set: updateSet,
+      });
   } catch (error) {
     console.error("[Database] Failed to upsert user:", error);
     throw error;

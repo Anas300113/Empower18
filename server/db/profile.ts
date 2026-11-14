@@ -33,7 +33,7 @@ export async function upsertProfile(
   userId: string,
   data: {
     displayName?: string | null;
-    timezone?: string | null;
+    timezone?: string;
   }
 ): Promise<Profile> {
   const db = await getDb();

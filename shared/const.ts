@@ -3,35 +3,24 @@ export const ONE_YEAR_MS = 1000 * 60 * 60 * 24 * 365;
 export const AXIOS_TIMEOUT_MS = 30_000;
 export const UNAUTHED_ERR_MSG = 'Please login (10001)';
 export const NOT_ADMIN_ERR_MSG = 'You do not have required permission (10002)';
+export const NOT_STUDENT_ERR_MSG = 'Student role required (10003)';
 
-// One-time nonce cookie that binds an OAuth login to the browser that started
-// it. The `__Host-` prefix forces the cookie host-only (Secure, Path=/, no
-// Domain), so a sibling *.manus.space site cannot plant a matching value in a
-// victim's browser.
-export const OAUTH_STATE_COOKIE = "__Host-oauth_state";
+// Supabase Auth error messages
+export const SUPABASE_EMAIL_REQUIRED_ERR = 'Email is required';
+export const SUPABASE_PASSWORD_REQUIRED_ERR = 'Password is required';
+export const SUPABASE_EMAIL_TAKEN_ERR = 'An account with this email already exists';
+export const SUPABASE_INVALID_CREDENTIALS_ERR = 'Invalid email or password';
+export const SUPABASE_EMAIL_NOT_VERIFIED_ERR = 'Please verify your email before signing in';
+export const SUPABASE_RESET_LINK_INVALID_ERR = 'The password reset link is invalid or has expired';
+export const SUPABASE_TOKEN_INVALID_ERR = 'The verification link is invalid or has expired';
 
-// `state` carries the callback redirect URI (used at token exchange) plus the
-// CSRF nonce. Defined here so the client encoder and server decoder never drift.
-export type OAuthState = { redirectUri: string; nonce?: string };
+// OAuth state management
+export const OAUTH_STATE_COOKIE = "oauth_state";
 
-export const encodeOAuthState = (state: OAuthState): string =>
-  btoa(JSON.stringify(state));
+export function encodeOAuthState(state: { redirectUri: string; nonce: string }): string {
+  return btoa(JSON.stringify(state));
+}
 
-export const decodeOAuthState = (state: string): OAuthState => {
-  let decoded: string;
-  try {
-    decoded = atob(state);
-  } catch {
-    // Malformed base64 (e.g. attacker-supplied garbage). Return no nonce so the
-    // callback's CSRF guard rejects it with 403 — never throw, since the caller
-    // runs outside the request handler's try/catch.
-    return { redirectUri: "" };
-  }
-  try {
-    const parsed = JSON.parse(decoded);
-    if (parsed && typeof parsed.redirectUri === "string") return parsed;
-  } catch {
-    // Legacy links: `state` was a bare base64(redirectUri) with no nonce.
-  }
-  return { redirectUri: decoded };
-};
+export function decodeOAuthState(encoded: string): { redirectUri: string; nonce: string } {
+  return JSON.parse(atob(encoded));
+}
