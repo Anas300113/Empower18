@@ -13,7 +13,9 @@ export default defineConfig({
     url: connectionString,
   },
   migrations: {
-    table: "drizzle_migrations",
-    schema: "public",
+    // Keep drizzle-kit aligned with drizzle-orm's runtime migrator. The
+    // existing production ledger lives in this default schema/table pair.
+    table: "__drizzle_migrations",
+    schema: "drizzle",
   },
 });

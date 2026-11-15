@@ -29,6 +29,20 @@
       "when": 1794754501138,
       "tag": "0003_mixed_blizzard",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794768796016,
+      "tag": "0004_allow_audit_actor_removal",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794773805772,
+      "tag": "0005_prevent_duplicate_student_applications",
+      "breakpoints": true
     }
   ]
 }

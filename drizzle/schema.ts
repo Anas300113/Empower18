@@ -36,7 +36,11 @@ export type AuthUser = typeof authUsers.$inferSelect;
 // Enums (PostgreSQL native enums)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const userRoleEnum = pgEnum("user_role", ["student", "employer", "admin"]);
+export const userRoleEnum = pgEnum("user_role", [
+  "student",
+  "employer",
+  "admin",
+]);
 export const opportunityTypeEnum = pgEnum("opportunity_type", [
   "apprenticeship",
   "internship",
@@ -117,9 +121,15 @@ export const users = pgTable("users", {
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("login_method", { length: 64 }),
   role: varchar("role", { length: 32 }).notNull().default("user"),
-  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
-  lastSignedIn: timestamp("last_signed_in", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
+  lastSignedIn: timestamp("last_signed_in", { withTimezone: true })
+    .defaultNow()
+    .notNull(),
 });
 
 export type User = typeof users.$inferSelect;
@@ -137,11 +147,17 @@ export const profiles = pgTable(
       .notNull()
       .references(() => authUsers.id, { onDelete: "cascade" }),
     displayName: varchar("display_name", { length: 120 }),
-    timezone: varchar("timezone", { length: 64 }).notNull().default("Europe/London"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    timezone: varchar("timezone", { length: 64 })
+      .notNull()
+      .default("Europe/London"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [uniqueIndex("profiles_user_id_idx").on(t.userId)]
+  t => [uniqueIndex("profiles_user_id_idx").on(t.userId)]
 ).enableRLS();
 
 export type Profile = typeof profiles.$inferSelect;
@@ -165,11 +181,17 @@ export const studentProfiles = pgTable(
     routesOfInterest: text("routes_of_interest").array().notNull().default([]),
     goals: text("goals"),
     accessibilityNeeds: text("accessibility_needs"),
-    onboardingCompleted: boolean("onboarding_completed").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    onboardingCompleted: boolean("onboarding_completed")
+      .notNull()
+      .default(false),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [uniqueIndex("student_profiles_user_id_idx").on(t.userId)]
+  t => [uniqueIndex("student_profiles_user_id_idx").on(t.userId)]
 ).enableRLS();
 
 export type StudentProfile = typeof studentProfiles.$inferSelect;
@@ -187,10 +209,12 @@ export const userRoles = pgTable(
       .notNull()
       .references(() => authUsers.id, { onDelete: "cascade" }),
     role: userRoleEnum("role").notNull().default("student"),
-    grantedAt: timestamp("granted_at", { withTimezone: true }).defaultNow().notNull(),
+    grantedAt: timestamp("granted_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
     grantedBy: uuid("granted_by").references(() => authUsers.id),
   },
-  (t) => [
+  t => [
     index("user_roles_user_id_idx").on(t.userId),
     uniqueIndex("user_roles_user_id_role_idx").on(t.userId, t.role),
   ]
@@ -213,10 +237,14 @@ export const organisations = pgTable(
     description: text("description"),
     location: varchar("location", { length: 255 }),
     isVerified: boolean("is_verified").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [index("organisations_name_idx").on(t.name)]
+  t => [index("organisations_name_idx").on(t.name)]
 ).enableRLS();
 
 export type Organisation = typeof organisations.$inferSelect;
@@ -241,16 +269,24 @@ export const opportunitySources = pgTable(
     termsOfServiceUrl: varchar("terms_of_service_url", { length: 512 }),
     retrievalSchedule: varchar("retrieval_schedule", { length: 64 }),
     rateLimit: varchar("rate_limit", { length: 64 }),
-    lastSuccessfulSync: timestamp("last_successful_sync", { withTimezone: true }),
+    lastSuccessfulSync: timestamp("last_successful_sync", {
+      withTimezone: true,
+    }),
     lastFailedSync: timestamp("last_failed_sync", { withTimezone: true }),
-    reliabilityStatus: reliabilityStatusEnum("reliability_status").notNull().default("unknown"),
+    reliabilityStatus: reliabilityStatusEnum("reliability_status")
+      .notNull()
+      .default("unknown"),
     sourceAuthority: varchar("source_authority", { length: 64 }),
     administratorOwner: varchar("administrator_owner", { length: 255 }),
     isActive: boolean("is_active").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [index("opportunity_sources_name_idx").on(t.name)]
+  t => [index("opportunity_sources_name_idx").on(t.name)]
 ).enableRLS();
 
 export type OpportunitySource = typeof opportunitySources.$inferSelect;
@@ -283,11 +319,17 @@ export const opportunities = pgTable(
     salaryMin: numeric("salary_min", { precision: 10, scale: 2 }),
     salaryMax: numeric("salary_max", { precision: 10, scale: 2 }),
     compensationText: text("compensation_text"),
-    applicationOpensAt: timestamp("application_opens_at", { withTimezone: true }),
-    applicationDeadlineAt: timestamp("application_deadline_at", { withTimezone: true }),
+    applicationOpensAt: timestamp("application_opens_at", {
+      withTimezone: true,
+    }),
+    applicationDeadlineAt: timestamp("application_deadline_at", {
+      withTimezone: true,
+    }),
     startDateAt: timestamp("start_date_at", { withTimezone: true }),
     expiresAt: timestamp("expires_at", { withTimezone: true }),
-    externalApplicationUrl: varchar("external_application_url", { length: 1024 }),
+    externalApplicationUrl: varchar("external_application_url", {
+      length: 1024,
+    }),
     applicationInstructions: text("application_instructions"),
     sourceId: uuid("source_id").references(() => opportunitySources.id, {
       onDelete: "set null",
@@ -302,10 +344,14 @@ export const opportunities = pgTable(
     nextReviewAt: timestamp("next_review_at", { withTimezone: true }),
     isPublished: boolean("is_published").notNull().default(false),
     publishedAt: timestamp("published_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [
+  t => [
     index("opportunities_status_idx").on(t.status),
     index("opportunities_type_idx").on(t.type),
     index("opportunities_category_idx").on(t.category),
@@ -315,7 +361,10 @@ export const opportunities = pgTable(
     index("opportunities_is_published_idx").on(t.isPublished),
     index("opportunities_expires_at_idx").on(t.expiresAt),
     uniqueIndex("opportunities_canonical_url_unique_idx").on(t.canonicalUrl),
-    uniqueIndex("opportunities_source_record_unique_idx").on(t.sourceId, t.sourceRecordId),
+    uniqueIndex("opportunities_source_record_unique_idx").on(
+      t.sourceId,
+      t.sourceRecordId
+    ),
   ]
 ).enableRLS();
 
@@ -336,17 +385,24 @@ export const opportunityOrganisations = pgTable(
       .notNull()
       .references(() => organisations.id, { onDelete: "cascade" }),
     role: varchar("role", { length: 64 }).notNull().default("provider"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [
-    uniqueIndex("opportunity_organisations_opp_org_idx").on(t.opportunityId, t.organisationId),
+  t => [
+    uniqueIndex("opportunity_organisations_opp_org_idx").on(
+      t.opportunityId,
+      t.organisationId
+    ),
     index("opportunity_organisations_opportunity_id_idx").on(t.opportunityId),
     index("opportunity_organisations_organisation_id_idx").on(t.organisationId),
   ]
 ).enableRLS();
 
-export type OpportunityOrganisation = typeof opportunityOrganisations.$inferSelect;
-export type InsertOpportunityOrganisation = typeof opportunityOrganisations.$inferInsert;
+export type OpportunityOrganisation =
+  typeof opportunityOrganisations.$inferSelect;
+export type InsertOpportunityOrganisation =
+  typeof opportunityOrganisations.$inferInsert;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Saved opportunities
@@ -362,12 +418,17 @@ export const savedOpportunities = pgTable(
     opportunityId: uuid("opportunity_id")
       .notNull()
       .references(() => opportunities.id, { onDelete: "cascade" }),
-    savedAt: timestamp("saved_at", { withTimezone: true }).defaultNow().notNull(),
+    savedAt: timestamp("saved_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
     notes: text("notes"),
   },
-  (t) => [
+  t => [
     index("saved_opportunities_user_id_idx").on(t.userId),
-    uniqueIndex("saved_opportunities_user_id_opportunity_id_idx").on(t.userId, t.opportunityId),
+    uniqueIndex("saved_opportunities_user_id_opportunity_id_idx").on(
+      t.userId,
+      t.opportunityId
+    ),
   ]
 ).enableRLS();
 
@@ -392,13 +453,21 @@ export const studentApplications = pgTable(
     isSubmitted: boolean("is_submitted").notNull().default(false),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     notes: text("notes"),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [
+  t => [
     index("student_applications_user_id_idx").on(t.userId),
     index("student_applications_opportunity_id_idx").on(t.opportunityId),
     index("student_applications_stage_idx").on(t.stage),
+    uniqueIndex("student_applications_user_opportunity_idx").on(
+      t.userId,
+      t.opportunityId
+    ),
   ]
 ).enableRLS();
 
@@ -416,10 +485,12 @@ export const applicationEvents = pgTable(
     changedBy: uuid("changed_by")
       .notNull()
       .references(() => authUsers.id),
-    changedAt: timestamp("changed_at", { withTimezone: true }).defaultNow().notNull(),
+    changedAt: timestamp("changed_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
     reason: text("reason"),
   },
-  (t) => [index("application_events_application_id_idx").on(t.applicationId)]
+  t => [index("application_events_application_id_idx").on(t.applicationId)]
 ).enableRLS();
 
 export type ApplicationEvent = typeof applicationEvents.$inferSelect;
@@ -437,10 +508,14 @@ export const applicationTasks = pgTable(
     dueAt: timestamp("due_at", { withTimezone: true }),
     isCompleted: boolean("is_completed").notNull().default(false),
     completedAt: timestamp("completed_at", { withTimezone: true }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [index("application_tasks_application_id_idx").on(t.applicationId)]
+  t => [index("application_tasks_application_id_idx").on(t.applicationId)]
 ).enableRLS();
 
 export type ApplicationTask = typeof applicationTasks.$inferSelect;
@@ -462,10 +537,14 @@ export const resumes = pgTable(
     contentType: varchar("content_type", { length: 128 }),
     fileSizeBytes: integer("file_size_bytes"),
     isDefault: boolean("is_default").notNull().default(false),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [
+  t => [
     index("resumes_user_id_idx").on(t.userId),
     index("resumes_is_default_idx").on(t.isDefault),
   ]
@@ -491,10 +570,14 @@ export const notifications = pgTable(
     isRead: boolean("is_read").notNull().default(false),
     readAt: timestamp("read_at", { withTimezone: true }),
     linkUrl: varchar("link_url", { length: 1024 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [
+  t => [
     index("notifications_user_id_idx").on(t.userId),
     index("notifications_is_read_idx").on(t.isRead),
     index("notifications_created_at_idx").on(t.createdAt),
@@ -515,14 +598,20 @@ export const notificationPreferences = pgTable(
     inAppEnabled: boolean("in_app_enabled").notNull().default(true),
     deadlineReminders: boolean("deadline_reminders").notNull().default(true),
     newOpportunities: boolean("new_opportunities").notNull().default(true),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
-    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [uniqueIndex("notification_preferences_user_id_idx").on(t.userId)]
+  t => [uniqueIndex("notification_preferences_user_id_idx").on(t.userId)]
 ).enableRLS();
 
-export type NotificationPreference = typeof notificationPreferences.$inferSelect;
-export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
+export type NotificationPreference =
+  typeof notificationPreferences.$inferSelect;
+export type InsertNotificationPreference =
+  typeof notificationPreferences.$inferInsert;
 
 export const notificationOutbox = pgTable(
   "notification_outbox",
@@ -541,10 +630,12 @@ export const notificationOutbox = pgTable(
     nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true }),
     lastError: text("last_error"),
     providerMessageId: varchar("provider_message_id", { length: 255 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
     sentAt: timestamp("sent_at", { withTimezone: true }),
   },
-  (t) => [
+  t => [
     index("notification_outbox_status_idx").on(t.status),
     index("notification_outbox_next_attempt_idx").on(t.nextAttemptAt),
     index("notification_outbox_user_id_idx").on(t.userId),
@@ -562,18 +653,20 @@ export const adminAuditLogs = pgTable(
   "admin_audit_logs",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    actorUserId: uuid("actor_user_id")
-      .notNull()
-      .references(() => authUsers.id, { onDelete: "set null" }),
+    actorUserId: uuid("actor_user_id").references(() => authUsers.id, {
+      onDelete: "set null",
+    }),
     action: varchar("action", { length: 128 }).notNull(),
     targetType: varchar("target_type", { length: 64 }).notNull(),
     targetId: uuid("target_id"),
     details: jsonb("details"),
     ipAddress: varchar("ip_address", { length: 64 }),
     userAgent: varchar("user_agent", { length: 512 }),
-    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
   },
-  (t) => [
+  t => [
     index("admin_audit_logs_actor_id_idx").on(t.actorUserId),
     index("admin_audit_logs_target_idx").on(t.targetType, t.targetId),
     index("admin_audit_logs_created_at_idx").on(t.createdAt),

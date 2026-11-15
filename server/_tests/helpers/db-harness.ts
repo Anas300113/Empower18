@@ -17,7 +17,11 @@ export const MIGRATION_FILES = [
   "0001_enable_rls.sql",
   "0002_high_miss_america.sql",
   "0003_mixed_blizzard.sql",
-].map((file) => path.resolve(import.meta.dirname, "../../../drizzle/migrations", file));
+  "0004_allow_audit_actor_removal.sql",
+  "0005_prevent_duplicate_student_applications.sql",
+].map(file =>
+  path.resolve(import.meta.dirname, "../../../drizzle/migrations", file)
+);
 
 export type DisposableDb = {
   sql: postgres.Sql;
@@ -89,8 +93,8 @@ export async function applyMigrationFile(
 
   const statements = content
     .split(/;\s*\n/)
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0 && !s.startsWith("--"));
+    .map(s => s.trim())
+    .filter(s => s.length > 0 && !s.startsWith("--"));
   for (const statement of statements) {
     await sql.unsafe(statement);
   }

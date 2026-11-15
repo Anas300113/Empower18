@@ -2,15 +2,11 @@
  * Independent QA tests — authorization and RBAC.
  *
  * Covers the Phase 2 AUTHORIZATION contract:
- *  - Student cannot access another student's profile   (blocked: see skips)
- *  - Student cannot access another student's applications (blocked)
- *  - Student cannot change their own role               (blocked)
+ *  - Cross-student database isolation requires a disposable PostgreSQL run
  *  - Admin-only procedures reject students
  *  - Valid admin authorization works
  *
- * Blocked tests are `it.skip` with the exact blocker named; they activate
- * automatically once the owning pane registers the feature routers and the
- * PostgreSQL schema is aligned. No production file is modified here.
+ * Database isolation cases remain skipped until TEST_DATABASE_URL is configured.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
@@ -84,7 +80,7 @@ describe("AUTHORIZATION — admin-only procedures", () => {
     expect(fetchSpy).toHaveBeenCalledTimes(1);
     const [, init] = fetchSpy.mock.calls[0] as [
       string,
-      { headers: Record<string, string> }
+      { headers: Record<string, string> },
     ];
     expect(init.headers.authorization).toBe("Bearer qa-server-key");
     // The key must travel server-to-server only.
@@ -92,26 +88,40 @@ describe("AUTHORIZATION — admin-only procedures", () => {
   });
 });
 
-describe("AUTHORIZATION — cross-student isolation (BLOCKED on implementation)", () => {
+describe("AUTHORIZATION — cross-student isolation (requires disposable PostgreSQL)", () => {
   it.skip("student cannot access another student's profile", () => {});
 
   it.skip("student cannot access another student's applications", () => {});
 
   it.skip("student cannot change their own role", () => {});
 
-  it.skip("admin-only feature procedures reject students", () => {});
+  it("student cannot invoke admin opportunity procedures", async () => {
+    const caller = appRouter.createCaller(makeContext(STUDENT_A));
+    await expect(caller.admin.sources.list()).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+  });
 });
 
 describe("AUTHORIZATION — structural evidence (runs now)", () => {
   it("exposes exactly the routers currently registered", () => {
-    // Documents the gap: feature routers are not yet part of the app contract.
     const procedures = Object.keys(
-      (appRouter as unknown as { _def: { procedures: Record<string, unknown> } })
-        ._def.procedures
+      (
+        appRouter as unknown as {
+          _def: { procedures: Record<string, unknown> };
+        }
+      )._def.procedures
     );
-    expect(procedures).toEqual(expect.arrayContaining(["system.health", "auth.me", "profile.me"]));
-    expect(procedures).not.toContain("opportunities");
-    expect(procedures).not.toContain("applications");
+    expect(procedures).toEqual(
+      expect.arrayContaining([
+        "system.health",
+        "auth.me",
+        "profile.me",
+        "opportunities.list",
+        "applications.list",
+        "admin.opportunities.approveAndPublish",
+      ])
+    );
   });
 
   it("student fixtures never carry the admin role", () => {
