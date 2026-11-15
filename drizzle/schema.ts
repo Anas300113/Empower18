@@ -142,7 +142,7 @@ export const profiles = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("profiles_user_id_idx").on(t.userId)]
-);
+).enableRLS();
 
 export type Profile = typeof profiles.$inferSelect;
 export type InsertProfile = typeof profiles.$inferInsert;
@@ -170,7 +170,7 @@ export const studentProfiles = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("student_profiles_user_id_idx").on(t.userId)]
-);
+).enableRLS();
 
 export type StudentProfile = typeof studentProfiles.$inferSelect;
 export type InsertStudentProfile = typeof studentProfiles.$inferInsert;
@@ -194,7 +194,7 @@ export const userRoles = pgTable(
     index("user_roles_user_id_idx").on(t.userId),
     uniqueIndex("user_roles_user_id_role_idx").on(t.userId, t.role),
   ]
-);
+).enableRLS();
 
 export type UserRole = typeof userRoles.$inferSelect;
 export type InsertUserRole = typeof userRoles.$inferInsert;
@@ -217,7 +217,7 @@ export const organisations = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("organisations_name_idx").on(t.name)]
-);
+).enableRLS();
 
 export type Organisation = typeof organisations.$inferSelect;
 export type InsertOrganisation = typeof organisations.$inferInsert;
@@ -251,7 +251,7 @@ export const opportunitySources = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("opportunity_sources_name_idx").on(t.name)]
-);
+).enableRLS();
 
 export type OpportunitySource = typeof opportunitySources.$inferSelect;
 export type InsertOpportunitySource = typeof opportunitySources.$inferInsert;
@@ -311,7 +311,7 @@ export const opportunities = pgTable(
     index("opportunities_is_published_idx").on(t.isPublished),
     index("opportunities_expires_at_idx").on(t.expiresAt),
   ]
-);
+).enableRLS();
 
 export type Opportunity = typeof opportunities.$inferSelect;
 export type InsertOpportunity = typeof opportunities.$inferInsert;
@@ -337,7 +337,7 @@ export const opportunityOrganisations = pgTable(
     index("opportunity_organisations_opportunity_id_idx").on(t.opportunityId),
     index("opportunity_organisations_organisation_id_idx").on(t.organisationId),
   ]
-);
+).enableRLS();
 
 export type OpportunityOrganisation = typeof opportunityOrganisations.$inferSelect;
 export type InsertOpportunityOrganisation = typeof opportunityOrganisations.$inferInsert;
@@ -363,7 +363,7 @@ export const savedOpportunities = pgTable(
     index("saved_opportunities_user_id_idx").on(t.userId),
     uniqueIndex("saved_opportunities_user_id_opportunity_id_idx").on(t.userId, t.opportunityId),
   ]
-);
+).enableRLS();
 
 export type SavedOpportunity = typeof savedOpportunities.$inferSelect;
 export type InsertSavedOpportunity = typeof savedOpportunities.$inferInsert;
@@ -394,7 +394,7 @@ export const studentApplications = pgTable(
     index("student_applications_opportunity_id_idx").on(t.opportunityId),
     index("student_applications_stage_idx").on(t.stage),
   ]
-);
+).enableRLS();
 
 export type StudentApplication = typeof studentApplications.$inferSelect;
 export type InsertStudentApplication = typeof studentApplications.$inferInsert;
@@ -414,7 +414,7 @@ export const applicationEvents = pgTable(
     reason: text("reason"),
   },
   (t) => [index("application_events_application_id_idx").on(t.applicationId)]
-);
+).enableRLS();
 
 export type ApplicationEvent = typeof applicationEvents.$inferSelect;
 export type InsertApplicationEvent = typeof applicationEvents.$inferInsert;
@@ -435,7 +435,7 @@ export const applicationTasks = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [index("application_tasks_application_id_idx").on(t.applicationId)]
-);
+).enableRLS();
 
 export type ApplicationTask = typeof applicationTasks.$inferSelect;
 export type InsertApplicationTask = typeof applicationTasks.$inferInsert;
@@ -463,7 +463,7 @@ export const resumes = pgTable(
     index("resumes_user_id_idx").on(t.userId),
     index("resumes_is_default_idx").on(t.isDefault),
   ]
-);
+).enableRLS();
 
 export type Resume = typeof resumes.$inferSelect;
 export type InsertResume = typeof resumes.$inferInsert;
@@ -493,7 +493,7 @@ export const notifications = pgTable(
     index("notifications_is_read_idx").on(t.isRead),
     index("notifications_created_at_idx").on(t.createdAt),
   ]
-);
+).enableRLS();
 
 export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = typeof notifications.$inferInsert;
@@ -513,7 +513,7 @@ export const notificationPreferences = pgTable(
     updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   },
   (t) => [uniqueIndex("notification_preferences_user_id_idx").on(t.userId)]
-);
+).enableRLS();
 
 export type NotificationPreference = typeof notificationPreferences.$inferSelect;
 export type InsertNotificationPreference = typeof notificationPreferences.$inferInsert;
@@ -543,7 +543,7 @@ export const notificationOutbox = pgTable(
     index("notification_outbox_next_attempt_idx").on(t.nextAttemptAt),
     index("notification_outbox_user_id_idx").on(t.userId),
   ]
-);
+).enableRLS();
 
 export type NotificationOutbox = typeof notificationOutbox.$inferSelect;
 export type InsertNotificationOutbox = typeof notificationOutbox.$inferInsert;
@@ -572,7 +572,7 @@ export const adminAuditLogs = pgTable(
     index("admin_audit_logs_target_idx").on(t.targetType, t.targetId),
     index("admin_audit_logs_created_at_idx").on(t.createdAt),
   ]
-);
+).enableRLS();
 
 export type AdminAuditLog = typeof adminAuditLogs.$inferSelect;
 export type InsertAdminAuditLog = typeof adminAuditLogs.$inferInsert;

@@ -181,10 +181,15 @@ export async function ensureStudentRole(userId: string): Promise<boolean> {
   const existing = await getUserRoles(userId);
   if (existing.includes("student")) return true;
 
-  await db.insert(userRoles).values({
-    userId,
-    role: "student",
-  });
+  // The unique (user_id, role) index makes this safe when multiple first
+  // requests authenticate the same user concurrently. A failed insert is
+  // allowed to propagate so createContext fails closed.
+  await db
+    .insert(userRoles)
+    .values({ userId, role: "student" })
+    .onConflictDoNothing({
+      target: [userRoles.userId, userRoles.role],
+    });
   return true;
 }
 

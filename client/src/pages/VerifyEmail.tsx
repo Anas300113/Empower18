@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { verifyEmail } from "@/_core/auth";
+import { getSession, verifyEmail } from "@/_core/auth";
 import { toast } from "sonner";
 import { Compass, Mail, Check, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -12,18 +12,26 @@ export default function VerifyEmail() {
 
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
 
     try {
-      if (!token) {
-        toast.error("The verification link is missing its token.");
-        return;
-      }
-      const result = await verifyEmail(token, "signup");
-      if (!result.ok) {
-        toast.error(result.error.message || "The verification link is invalid or has expired.");
-        return;
+      if (token) {
+        const result = await verifyEmail(token, "signup");
+        if (!result.ok) {
+          toast.error(result.error.message || "The verification link is invalid or has expired.");
+          return;
+        }
+      } else {
+        // Supabase's default email template redirects with `code`; the
+        // browser client exchanges it automatically because detectSessionInUrl
+        // is enabled. A session is therefore the verification proof.
+        const sessionResult = await getSession();
+        if (!sessionResult.ok || !sessionResult.data) {
+          toast.error("The verification link is invalid, expired, or has already been used.");
+          return;
+        }
       }
       toast.success("Email verified! You can now sign in.");
       setLocation(`/login?next=${encodeURIComponent(nextPath)}`);
@@ -47,13 +55,6 @@ export default function VerifyEmail() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="hidden"
-            name="token"
-            value={token}
-            defaultValue={token}
-          />
-
           <button
             type="submit"
             disabled={loading}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { updatePassword } from "@/_core/auth";
+import { getSession, updatePassword } from "@/_core/auth";
 import { toast } from "sonner";
 import { Compass, Lock, Mail, ArrowRight, ArrowLeft } from "lucide-react";
 import { Link, useLocation } from "wouter";
@@ -9,12 +9,17 @@ export default function ResetPassword() {
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const searchParams = new URLSearchParams(window.location.search);
-  const token = searchParams.get("token_hash") ?? searchParams.get("token") ?? "";
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setLoading(true);
 
     try {
+      const sessionResult = await getSession();
+      if (!sessionResult.ok || !sessionResult.data) {
+        toast.error("This recovery link is invalid, expired, or has already been used.");
+        return;
+      }
       const result = await updatePassword(newPassword);
       if (!result.ok) {
         toast.error(result.error.message || "Failed to update password");
@@ -41,13 +46,6 @@ export default function ResetPassword() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="hidden"
-            name="token"
-            value={token}
-            defaultValue={token}
-          />
-
           <div className="form-group">
             <Lock size={16} className="icon-muted mb-2" />
             <input
