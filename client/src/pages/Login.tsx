@@ -1,24 +1,18 @@
 import { useState } from "react";
 import { signIn } from "@/_core/auth";
 import { toast } from "sonner";
-import { useNavigate } from "wouter";
 import { Compass, Lock, Mail, ArrowRight, ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const authLoading = loading;
 
   if (authLoading) {
     return <div>Loading auth...</div>;
-  }
-
-  if (false) {
-    navigate("/dashboard");
-    return null;
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -32,7 +26,7 @@ export default function Login() {
         return;
       }
       toast.success("Welcome back!");
-      navigate("/dashboard");
+      setLocation("/dashboard");
     } catch (error) {
       toast.error("An unexpected error occurred");
     } finally {

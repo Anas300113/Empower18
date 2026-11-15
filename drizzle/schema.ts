@@ -5,6 +5,7 @@ import {
   jsonb,
   numeric,
   pgEnum,
+  pgSchema,
   pgTable,
   serial,
   text,
@@ -20,7 +21,9 @@ import {
 // this table — it exists in the `auth` schema, managed by Supabase Auth.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const authUsers = pgTable("auth.users", {
+const auth = pgSchema("auth");
+
+export const authUsers = auth.table("users", {
   id: uuid("id").primaryKey(),
   email: varchar("email", { length: 320 }),
   rawUserMetaData: jsonb("raw_user_meta_data"),

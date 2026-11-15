@@ -1,5 +1,5 @@
 {
-  "id": "d50ab755-2a95-4037-865e-ae268562a4d9",
+  "id": "53f12c36-f8f2-4f4b-9525-f3e40b635f4b",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -119,10 +119,11 @@
         }
       },
       "foreignKeys": {
-        "admin_audit_logs_actor_user_id_auth.users_id_fk": {
-          "name": "admin_audit_logs_actor_user_id_auth.users_id_fk",
+        "admin_audit_logs_actor_user_id_users_id_fk": {
+          "name": "admin_audit_logs_actor_user_id_users_id_fk",
           "tableFrom": "admin_audit_logs",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "actor_user_id"
           ],
@@ -214,10 +215,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "application_events_changed_by_auth.users_id_fk": {
-          "name": "application_events_changed_by_auth.users_id_fk",
+        "application_events_changed_by_users_id_fk": {
+          "name": "application_events_changed_by_users_id_fk",
           "tableFrom": "application_events",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "changed_by"
           ],
@@ -335,9 +337,9 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.auth.users": {
-      "name": "auth.users",
-      "schema": "",
+    "auth.users": {
+      "name": "users",
+      "schema": "auth",
       "columns": {
         "id": {
           "name": "id",
@@ -516,10 +518,11 @@
         }
       },
       "foreignKeys": {
-        "notification_outbox_user_id_auth.users_id_fk": {
-          "name": "notification_outbox_user_id_auth.users_id_fk",
+        "notification_outbox_user_id_users_id_fk": {
+          "name": "notification_outbox_user_id_users_id_fk",
           "tableFrom": "notification_outbox",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
@@ -614,10 +617,11 @@
         }
       },
       "foreignKeys": {
-        "notification_preferences_user_id_auth.users_id_fk": {
-          "name": "notification_preferences_user_id_auth.users_id_fk",
+        "notification_preferences_user_id_users_id_fk": {
+          "name": "notification_preferences_user_id_users_id_fk",
           "tableFrom": "notification_preferences",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
@@ -752,10 +756,11 @@
         }
       },
       "foreignKeys": {
-        "notifications_user_id_auth.users_id_fk": {
-          "name": "notifications_user_id_auth.users_id_fk",
+        "notifications_user_id_users_id_fk": {
+          "name": "notifications_user_id_users_id_fk",
           "tableFrom": "notifications",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
@@ -1102,10 +1107,11 @@
           "onDelete": "set null",
           "onUpdate": "no action"
         },
-        "opportunities_verified_by_auth.users_id_fk": {
-          "name": "opportunities_verified_by_auth.users_id_fk",
+        "opportunities_verified_by_users_id_fk": {
+          "name": "opportunities_verified_by_users_id_fk",
           "tableFrom": "opportunities",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "verified_by"
           ],
@@ -1548,10 +1554,11 @@
         }
       },
       "foreignKeys": {
-        "profiles_user_id_auth.users_id_fk": {
-          "name": "profiles_user_id_auth.users_id_fk",
+        "profiles_user_id_users_id_fk": {
+          "name": "profiles_user_id_users_id_fk",
           "tableFrom": "profiles",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
@@ -1664,10 +1671,11 @@
         }
       },
       "foreignKeys": {
-        "resumes_user_id_auth.users_id_fk": {
-          "name": "resumes_user_id_auth.users_id_fk",
+        "resumes_user_id_users_id_fk": {
+          "name": "resumes_user_id_users_id_fk",
           "tableFrom": "resumes",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
@@ -1760,10 +1768,11 @@
         }
       },
       "foreignKeys": {
-        "saved_opportunities_user_id_auth.users_id_fk": {
-          "name": "saved_opportunities_user_id_auth.users_id_fk",
+        "saved_opportunities_user_id_users_id_fk": {
+          "name": "saved_opportunities_user_id_users_id_fk",
           "tableFrom": "saved_opportunities",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
@@ -1906,10 +1915,11 @@
         }
       },
       "foreignKeys": {
-        "student_applications_user_id_auth.users_id_fk": {
-          "name": "student_applications_user_id_auth.users_id_fk",
+        "student_applications_user_id_users_id_fk": {
+          "name": "student_applications_user_id_users_id_fk",
           "tableFrom": "student_applications",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
@@ -2040,10 +2050,11 @@
         }
       },
       "foreignKeys": {
-        "student_profiles_user_id_auth.users_id_fk": {
-          "name": "student_profiles_user_id_auth.users_id_fk",
+        "student_profiles_user_id_users_id_fk": {
+          "name": "student_profiles_user_id_users_id_fk",
           "tableFrom": "student_profiles",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
@@ -2138,10 +2149,11 @@
         }
       },
       "foreignKeys": {
-        "user_roles_user_id_auth.users_id_fk": {
-          "name": "user_roles_user_id_auth.users_id_fk",
+        "user_roles_user_id_users_id_fk": {
+          "name": "user_roles_user_id_users_id_fk",
           "tableFrom": "user_roles",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "user_id"
           ],
@@ -2151,10 +2163,11 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "user_roles_granted_by_auth.users_id_fk": {
-          "name": "user_roles_granted_by_auth.users_id_fk",
+        "user_roles_granted_by_users_id_fk": {
+          "name": "user_roles_granted_by_users_id_fk",
           "tableFrom": "user_roles",
-          "tableTo": "auth.users",
+          "tableTo": "users",
+          "schemaTo": "auth",
           "columnsFrom": [
             "granted_by"
           ],

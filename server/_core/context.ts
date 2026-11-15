@@ -39,7 +39,7 @@ function extractAccessToken(req: CreateExpressContextOptions["req"]): string | n
 }
 
 export async function createContext(
-  opts: CreateExpressContextOptions
+  opts: Pick<CreateExpressContextOptions, "req" | "res">
 ): Promise<TrpcContext> {
   let user: AuthenticatedUser | null = null;
 

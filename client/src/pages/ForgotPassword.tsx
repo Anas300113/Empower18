@@ -3,19 +3,20 @@ import { resetPassword } from "@/_core/auth";
 import { toast } from "sonner";
 import { Compass, Mail, Lock, ArrowRight, ArrowLeft } from "lucide-react";
 import { Link } from "wouter";
-import { useNavigate } from "wouter";
 
 export default function ForgotPassword() {
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      await resetPassword(email);
+      const result = await resetPassword(email);
+      if (!result.ok) {
+        toast.error(result.error.message || "Unable to send reset instructions");
+        return;
+      }
       toast.success(
         "Password reset instructions sent to your email address"
       );

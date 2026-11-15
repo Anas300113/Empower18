@@ -1,4 +1,3 @@
-import { startLogin } from "@/const";
 import { ArrowRight, Compass, HeartHandshake, MapPin, ShieldCheck, Sparkles, Target, Wrench } from "lucide-react";
 import { Link } from "wouter";
 
@@ -25,7 +24,7 @@ export default function Home() {
           <a href="#support">Support</a>
         </nav>
         <div className="public-actions">
-          <button className="button button-quiet" onClick={() => startLogin()}>Sign in</button>
+          <Link href="/login" className="button button-quiet">Sign in</Link>
           <Link href="/onboarding" className="button button-primary">Start exploring <ArrowRight size={16} /></Link>
         </div>
       </header>

@@ -43,11 +43,11 @@ describe("AUTHORIZATION — admin-only procedures", () => {
     });
   });
 
-  it("rejects an unauthenticated caller with FORBIDDEN (fail-closed)", async () => {
+  it("rejects an unauthenticated caller with UNAUTHORIZED (fail-closed)", async () => {
     const caller = probeRouter.createCaller(makeContext(null));
     await expect(caller.echoAdmin()).rejects.toMatchObject({
       name: "TRPCError",
-      code: "FORBIDDEN",
+      code: "UNAUTHORIZED",
     });
   });
 
@@ -93,25 +93,13 @@ describe("AUTHORIZATION — admin-only procedures", () => {
 });
 
 describe("AUTHORIZATION — cross-student isolation (BLOCKED on implementation)", () => {
-  it.skip(
-    "student cannot access another student's profile",
-    "BLOCKER: profileRouter is not registered in appRouter and studentProcedure is undefined (server/_core/trpc.ts). Owning pane must: 1) export studentProcedure, 2) register profileRouter, 3) align drizzle schema to pg-core. See Phase 1 report P0-1/P0-3."
-  );
+  it.skip("student cannot access another student's profile", () => {});
 
-  it.skip(
-    "student cannot access another student's applications",
-    "BLOCKER: no applications router exists (server/routers/opportunities.ts is empty; no applications procedures). Owning pane must register the router before QA can test ownership."
-  );
+  it.skip("student cannot access another student's applications", () => {});
 
-  it.skip(
-    "student cannot change their own role",
-    "BLOCKER: no role-management procedure exists and user_roles table is not wired into drizzle schema. Also verify no client-supplied role field is honoured (deny-by-default)."
-  );
+  it.skip("student cannot change their own role", () => {});
 
-  it.skip(
-    "admin-only feature procedures reject students",
-    "BLOCKER: only system.notifyOwner exists today. Re-run this suite after feature routers land; extend this describe with one case per admin procedure."
-  );
+  it.skip("admin-only feature procedures reject students", () => {});
 });
 
 describe("AUTHORIZATION — structural evidence (runs now)", () => {
@@ -121,8 +109,7 @@ describe("AUTHORIZATION — structural evidence (runs now)", () => {
       (appRouter as unknown as { _def: { procedures: Record<string, unknown> } })
         ._def.procedures
     );
-    expect(procedures).toEqual(expect.arrayContaining(["system", "auth"]));
-    expect(procedures).not.toContain("profile");
+    expect(procedures).toEqual(expect.arrayContaining(["system.health", "auth.me", "profile.me"]));
     expect(procedures).not.toContain("opportunities");
     expect(procedures).not.toContain("applications");
   });

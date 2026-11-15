@@ -1,24 +1,27 @@
-import { useState, useSearchParams } from "react";
+import { useState } from "react";
 import { updatePassword } from "@/_core/auth";
 import { toast } from "sonner";
-import { useNavigate } from "wouter";
 import { Compass, Lock, Mail, ArrowRight, ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 export default function ResetPassword() {
-  const navigate = useNavigate();
+  const [, setLocation] = useLocation();
   const [newPassword, setNewPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  const searchParams = new URLSearchParams(window.location.search);
+  const token = searchParams.get("token_hash") ?? searchParams.get("token") ?? "";
 
   const handleSubmit = async () => {
     setLoading(true);
 
     try {
-      await updatePassword(newPassword);
+      const result = await updatePassword(newPassword);
+      if (!result.ok) {
+        toast.error(result.error.message || "Failed to update password");
+        return;
+      }
       toast.success("Password updated successfully! You can now sign in.");
-      navigate("/login");
+      setLocation("/login");
     } catch (error) {
       toast.error("Failed to update password. The link may be invalid or expired.");
     } finally {

@@ -1,43 +1,42 @@
-/**
- * QA-owned test fixtures. Independent of implementation panes.
- * Do NOT import these from production code.
- */
-import type { User } from "../../../drizzle/schema";
+/** Test identities used by authentication and authorization tests. */
+import type { AuthenticatedUser } from "../../_core/context";
 
-export function makeUser(overrides: Partial<User> = {}): User {
+export type QaUser = AuthenticatedUser & {
+  openId: string;
+  role: string;
+};
+
+export function makeUser(overrides: Partial<QaUser> = {}): QaUser {
   return {
-    id: 1,
+    id: "00000000-0000-4000-8000-000000000001",
     openId: "qa-default-user",
     name: "QA Default User",
     email: "qa.default@example.com",
-    loginMethod: "email",
+    roles: ["student"],
     role: "user",
-    createdAt: new Date("2026-01-01T00:00:00.000Z"),
-    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
-    lastSignedIn: new Date("2026-01-01T00:00:00.000Z"),
     ...overrides,
   };
 }
 
-/** Two distinct students for ownership/isolation tests. */
 export const STUDENT_A = makeUser({
-  id: 101,
+  id: "00000000-0000-4000-8000-000000000101",
   openId: "qa-student-a",
   name: "Student A",
   email: "student.a@example.com",
 });
 
 export const STUDENT_B = makeUser({
-  id: 102,
+  id: "00000000-0000-4000-8000-000000000102",
   openId: "qa-student-b",
   name: "Student B",
   email: "student.b@example.com",
 });
 
 export const ADMIN_USER = makeUser({
-  id: 999,
+  id: "00000000-0000-4000-8000-000000000999",
   openId: "qa-admin",
   name: "QA Admin",
   email: "admin@example.com",
   role: "admin",
+  roles: ["admin"],
 });

@@ -1,23 +1,15 @@
 import { useState } from "react";
 import { signUp } from "@/_core/auth";
 import { toast } from "sonner";
-import { useNavigate } from "wouter";
 import { Compass, Lock, Mail, ArrowRight, ArrowLeft } from "lucide-react";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 export default function Register() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate();
-
-  if (false) {
-    navigate("/dashboard");
-    return null;
-  }
-
-  
+  const [, setLocation] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -30,7 +22,7 @@ export default function Register() {
         return;
       }
       toast.success("Account created! Please check your email for verification.");
-      navigate("/verify-email");
+      setLocation("/verify-email");
     } catch (error) {
       toast.error("An unexpected error occurred");
     } finally {

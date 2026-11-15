@@ -2,13 +2,12 @@ import { useState } from "react";
 import { verifyEmail } from "@/_core/auth";
 import { toast } from "sonner";
 import { Compass, Mail, Check, Lock, ArrowRight, ArrowLeft } from "lucide-react";
-import { useNavigate, useSearchParams } from "wouter";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 
 export default function VerifyEmail() {
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const token = searchParams.get("token") ?? "";
+  const [, setLocation] = useLocation();
+  const searchParams = new URLSearchParams(window.location.search);
+  const token = searchParams.get("token_hash") ?? searchParams.get("token") ?? "";
 
   const [loading, setLoading] = useState(false);
 
@@ -16,9 +15,17 @@ export default function VerifyEmail() {
     setLoading(true);
 
     try {
-      await verifyEmail(token, "signup");
+      if (!token) {
+        toast.error("The verification link is missing its token.");
+        return;
+      }
+      const result = await verifyEmail(token, "signup");
+      if (!result.ok) {
+        toast.error(result.error.message || "The verification link is invalid or has expired.");
+        return;
+      }
       toast.success("Email verified! You can now sign in.");
-      navigate("/login");
+      setLocation("/login");
     } catch (error) {
       toast.error("The verification link is invalid or has expired.");
     } finally {

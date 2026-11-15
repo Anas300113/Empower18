@@ -180,6 +180,7 @@ export function onAuthStateChange(
  * Get the current access token for tRPC requests.
  */
 export async function getAccessToken(): Promise<string | null> {
-  const { data: session } = await supabase.auth.getSession();
-  return (session as any)?.access_token ?? null;
+  const { data, error } = await supabase.auth.getSession();
+  if (error) return null;
+  return data.session?.access_token ?? null;
 }
