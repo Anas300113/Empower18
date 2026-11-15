@@ -1,8 +1,9 @@
 import { ArrowLeft, ArrowRight, Check, Compass, LockKeyhole, MapPin } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 const steps = ["About you", "What interests you", "Routes to explore", "Your next step"];
 const interests = ["People & care", "Technology", "Making & design", "Business", "Nature & environment", "Creative work", "Public service", "Not sure yet"];
@@ -10,6 +11,7 @@ const routes = ["Apprenticeship", "University", "T Level", "College or training"
 
 export default function Onboarding() {
   const [, setLocation] = useLocation();
+  const { user, loading: authLoading } = useAuth();
   const [step, setStep] = useState(0);
   const [name, setName] = useState("");
   const [age, setAge] = useState("");
@@ -18,6 +20,16 @@ export default function Onboarding() {
   const [selectedRoutes, setSelectedRoutes] = useState<string[]>([]);
   const onboardingMutation = trpc.profile.onboarding.useMutation();
   const profileMutation = trpc.profile.update.useMutation();
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      setLocation("/login?next=%2Fonboarding");
+    }
+  }, [authLoading, user, setLocation]);
+
+  if (authLoading || !user) {
+    return <div className="onboarding-page min-h-screen" aria-busy="true" />;
+  }
 
   const toggle = (value: string, setValues: (values: string[]) => void, values: string[]) => setValues(values.includes(value) ? values.filter(item => item !== value) : [...values, value]);
   const canContinue = step === 0 ? name.trim().length > 1 && age.length > 0 : step === 1 ? selectedInterests.length > 0 : step === 2 ? selectedRoutes.length > 0 : true;

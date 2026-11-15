@@ -9,6 +9,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
+  const nextPath = new URLSearchParams(window.location.search).get("next") || "/dashboard";
   const authLoading = loading;
 
   if (authLoading) {
@@ -26,7 +27,7 @@ export default function Login() {
         return;
       }
       toast.success("Welcome back!");
-      setLocation("/dashboard");
+      setLocation(nextPath.startsWith("/") ? nextPath : "/dashboard");
     } catch (error) {
       toast.error("An unexpected error occurred");
     } finally {

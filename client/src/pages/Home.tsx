@@ -25,7 +25,7 @@ export default function Home() {
         </nav>
         <div className="public-actions">
           <Link href="/login" className="button button-quiet">Sign in</Link>
-          <Link href="/onboarding" className="button button-primary">Start exploring <ArrowRight size={16} /></Link>
+          <Link href="/register?next=%2Fonboarding" className="button button-primary">Start exploring <ArrowRight size={16} /></Link>
         </div>
       </header>
 
@@ -36,7 +36,7 @@ export default function Home() {
             <h1>You do not need the whole plan today.</h1>
             <p className="hero-lede">Empower18 helps you explore what is possible, understand the routes into it, and take one practical next step toward a future that feels like yours.</p>
             <div className="hero-actions">
-              <Link href="/onboarding" className="button button-primary button-large">Find my next step <ArrowRight size={18} /></Link>
+              <Link href="/register?next=%2Fonboarding" className="button button-primary button-large">Find my next step <ArrowRight size={18} /></Link>
               <Link href="/opportunities" className="button button-outline button-large">Browse opportunities</Link>
             </div>
             <div className="trust-line"><ShieldCheck size={16} /> Verified opportunities · Plain English · Built with local support</div>
@@ -62,7 +62,7 @@ export default function Home() {
           </div>
           <div className="intent-grid">
             {intentCards.map(({ icon: Icon, title, copy }) => (
-              <Link key={title} href={title === "Find an opportunity" ? "/opportunities" : title === "Explore careers" ? "/careers" : title === "Get support" ? "/support" : "/onboarding"} className="intent-card">
+              <Link key={title} href={title === "Find an opportunity" ? "/opportunities" : title === "Explore careers" ? "/careers" : title === "Get support" ? "/support" : "/register?next=%2Fonboarding"} className="intent-card">
                 <span className="icon-tile"><Icon size={19} /></span>
                 <span className="intent-title">{title}</span>
                 <span className="intent-copy">{copy}</span>

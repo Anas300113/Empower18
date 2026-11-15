@@ -10,19 +10,21 @@ export default function Register() {
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
   const [, setLocation] = useLocation();
+  const nextPath = new URLSearchParams(window.location.search).get("next") || "/onboarding";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
     try {
-      const result = await signUp(email, password, { name });
+      const redirectTo = `${window.location.origin}/verify-email?next=${encodeURIComponent(nextPath)}`;
+      const result = await signUp(email, password, { name, redirectTo });
       if (!result.ok) {
         toast.error(result.error.message || "Registration failed");
         return;
       }
       toast.success("Account created! Please check your email for verification.");
-      setLocation("/verify-email");
+      setLocation(`/verify-email?next=${encodeURIComponent(nextPath)}`);
     } catch (error) {
       toast.error("An unexpected error occurred");
     } finally {

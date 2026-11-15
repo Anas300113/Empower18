@@ -174,17 +174,18 @@ export async function getUserRoles(userId: string): Promise<string[]> {
 /**
  * Ensure a user has the 'student' role (called on first login).
  */
-export async function ensureStudentRole(userId: string): Promise<void> {
+export async function ensureStudentRole(userId: string): Promise<boolean> {
   const db = await getDb();
-  if (!db) return;
+  if (!db) return false;
 
   const existing = await getUserRoles(userId);
-  if (existing.includes("student")) return;
+  if (existing.includes("student")) return true;
 
   await db.insert(userRoles).values({
     userId,
     role: "student",
   });
+  return true;
 }
 
 /**

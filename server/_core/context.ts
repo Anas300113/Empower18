@@ -1,6 +1,6 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import { verifySupabaseToken } from "./supabase";
-import { getUserRoles } from "../db/profile";
+import { ensureStudentRole, getUserRoles } from "../db/profile";
 
 /**
  * Strongly typed authenticated user.
@@ -59,7 +59,15 @@ export async function createContext(
 
     // Fetch roles from the database (trusted server-side data).
     // Never trust roles supplied by the browser or JWT claims.
-    const roles = await getUserRoles(verifiedUser.id);
+    let roles = await getUserRoles(verifiedUser.id);
+    // A newly registered participant has no application role yet. Provision
+    // the default student role during authentication, before protected
+    // onboarding mutations can run. Existing admin/employer roles are never
+    // overwritten or downgraded.
+    if (roles.length === 0) {
+      const provisioned = await ensureStudentRole(verifiedUser.id);
+      if (provisioned) roles = ["student"];
+    }
 
     user = {
       id: verifiedUser.id,

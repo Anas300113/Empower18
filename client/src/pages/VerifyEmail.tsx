@@ -8,6 +8,7 @@ export default function VerifyEmail() {
   const [, setLocation] = useLocation();
   const searchParams = new URLSearchParams(window.location.search);
   const token = searchParams.get("token_hash") ?? searchParams.get("token") ?? "";
+  const nextPath = searchParams.get("next") || "/onboarding";
 
   const [loading, setLoading] = useState(false);
 
@@ -25,7 +26,7 @@ export default function VerifyEmail() {
         return;
       }
       toast.success("Email verified! You can now sign in.");
-      setLocation("/login");
+      setLocation(`/login?next=${encodeURIComponent(nextPath)}`);
     } catch (error) {
       toast.error("The verification link is invalid or has expired.");
     } finally {

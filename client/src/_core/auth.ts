@@ -21,12 +21,15 @@ export type AuthResult<T> =
 export async function signUp(
   email: string,
   password: string,
-  options?: { name?: string }
+  options?: { name?: string; redirectTo?: string }
 ): Promise<AuthResult<{ user: User | null; session: Session | null }>> {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: options?.name ? { data: { name: options.name } } : undefined,
+    options: {
+      ...(options?.name ? { data: { name: options.name } } : {}),
+      ...(options?.redirectTo ? { emailRedirectTo: options.redirectTo } : {}),
+    },
   });
 
   if (error) {

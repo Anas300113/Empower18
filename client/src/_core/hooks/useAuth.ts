@@ -13,6 +13,10 @@ export function useAuth(options?: UseAuthOptions) {
 
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const profileQuery = trpc.profile.me.useQuery(undefined, {
+    enabled: Boolean(session),
+    retry: false,
+  });
 
   // Restore session on mount and listen for auth state changes.
   useEffect(() => {
@@ -46,6 +50,7 @@ export function useAuth(options?: UseAuthOptions) {
     } finally {
       setSession(null);
       await utils.auth.me.invalidate();
+      await utils.profile.me.invalidate();
     }
   }, [utils]);
 
