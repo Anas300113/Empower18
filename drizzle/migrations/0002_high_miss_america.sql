@@ -1,0 +1,2 @@
+CREATE UNIQUE INDEX "opportunities_canonical_url_unique_idx" ON "opportunities" USING btree ("canonical_url");--> statement-breakpoint
+CREATE UNIQUE INDEX "opportunities_source_record_unique_idx" ON "opportunities" USING btree ("source_id","source_record_id");

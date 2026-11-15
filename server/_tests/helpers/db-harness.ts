@@ -12,10 +12,12 @@ import { readFile } from "node:fs/promises";
 import path from "node:path";
 import postgres from "postgres";
 
-export const MIGRATION_FILE = path.resolve(
-  import.meta.dirname,
-  "../../../drizzle/migrations/0001_init_postgres_schema.sql"
-);
+export const MIGRATION_FILES = [
+  "0000_petite_luckman.sql",
+  "0001_enable_rls.sql",
+  "0002_high_miss_america.sql",
+  "0003_mixed_blizzard.sql",
+].map((file) => path.resolve(import.meta.dirname, "../../../drizzle/migrations", file));
 
 export type DisposableDb = {
   sql: postgres.Sql;
@@ -75,7 +77,7 @@ export async function createDisposableDatabase(): Promise<DisposableDb> {
  */
 export async function applyMigrationFile(
   sql: postgres.Sql,
-  file = MIGRATION_FILE
+  file = MIGRATION_FILES[0]
 ): Promise<void> {
   const content = await readFile(file, "utf8");
   try {
@@ -91,5 +93,11 @@ export async function applyMigrationFile(
     .filter((s) => s.length > 0 && !s.startsWith("--"));
   for (const statement of statements) {
     await sql.unsafe(statement);
+  }
+}
+
+export async function applyAllMigrations(sql: postgres.Sql): Promise<void> {
+  for (const file of MIGRATION_FILES) {
+    await applyMigrationFile(sql, file);
   }
 }

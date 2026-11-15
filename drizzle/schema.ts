@@ -268,6 +268,8 @@ export const opportunities = pgTable(
     description: text("description").notNull(),
     summary: text("summary"),
     type: opportunityTypeEnum("type").notNull(),
+    category: varchar("category", { length: 64 }),
+    route: varchar("route", { length: 64 }),
     status: opportunityStatusEnum("status").notNull().default("draft"),
     location: varchar("location", { length: 255 }),
     district: varchar("district", { length: 64 }),
@@ -306,10 +308,14 @@ export const opportunities = pgTable(
   (t) => [
     index("opportunities_status_idx").on(t.status),
     index("opportunities_type_idx").on(t.type),
+    index("opportunities_category_idx").on(t.category),
+    index("opportunities_route_idx").on(t.route),
     index("opportunities_deadline_idx").on(t.applicationDeadlineAt),
     index("opportunities_source_id_idx").on(t.sourceId),
     index("opportunities_is_published_idx").on(t.isPublished),
     index("opportunities_expires_at_idx").on(t.expiresAt),
+    uniqueIndex("opportunities_canonical_url_unique_idx").on(t.canonicalUrl),
+    uniqueIndex("opportunities_source_record_unique_idx").on(t.sourceId, t.sourceRecordId),
   ]
 ).enableRLS();
 
