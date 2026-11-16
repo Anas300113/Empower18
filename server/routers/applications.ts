@@ -5,6 +5,7 @@ import {
   APPLICATION_STAGES,
   createApplication,
   createApplicationTask,
+  listApplicationEvents,
   listApplications,
   listApplicationTasks,
   setApplicationTaskComplete,
@@ -58,6 +59,11 @@ export const applicationsRouter = router({
         input.applicationId,
         input.notes
       ).catch(databaseError)
+    ),
+  events: studentProcedure
+    .input(applicationIdInput)
+    .query(({ ctx, input }) =>
+      listApplicationEvents(ctx.user.id, input.applicationId).catch(databaseError)
     ),
   tasks: router({
     list: studentProcedure

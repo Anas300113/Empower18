@@ -66,6 +66,8 @@ export function useAuth(options?: UseAuthOptions) {
 
   return {
     ...state,
+    roles: profileQuery.data?.roles ?? [],
+    profileLoading: Boolean(session) && profileQuery.isLoading,
     refresh: () => getSession().then((r) => r.ok && setSession(r.data)),
     logout,
   };

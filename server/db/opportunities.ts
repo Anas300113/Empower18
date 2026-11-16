@@ -73,6 +73,8 @@ export type OpportunityListFilters = {
   sort?: "closing_soonest" | "newest" | "title";
 };
 
+export class PublicationValidationError extends Error {}
+
 function activePublishedConditions(now = new Date()) {
   return and(
     eq(opportunities.status, "published"),
@@ -560,6 +562,22 @@ export async function transitionOpportunity(
       throw new Error(
         `Invalid opportunity transition: ${before.status} -> ${to}`
       );
+    if (to === "published") {
+      if (!before.sourceId) {
+        throw new PublicationValidationError("Cannot publish without an active source record");
+      }
+      const [source] = await tx
+        .select()
+        .from(opportunitySources)
+        .where(eq(opportunitySources.id, before.sourceId))
+        .for("update");
+      if (!source?.isActive || source.reliabilityStatus === "unhealthy") {
+        throw new PublicationValidationError("Cannot publish unless the source is active and healthy");
+      }
+      if (!before.canonicalUrl || !before.verificationEvidence || !before.nextReviewAt || (!before.applicationDeadlineAt && !before.expiresAt)) {
+        throw new PublicationValidationError("Cannot publish without required verification, review and expiry information");
+      }
+    }
     const [updated] = await tx
       .update(opportunities)
       .set({
@@ -583,6 +601,45 @@ export async function transitionOpportunity(
     });
     return updated;
   });
+}
+
+/**
+ * Expire every published listing whose application deadline has passed. Rows
+ * are fetched in database-side batches so a catalogue larger than one page is
+ * fully covered without loading it all into memory.
+ */
+export async function expireDueOpportunities(
+  actorUserId: string,
+  now = new Date(),
+  batchSize = 100
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+
+  const expired: Opportunity[] = [];
+  while (true) {
+    const due = await db
+      .select({ id: opportunities.id })
+      .from(opportunities)
+      .where(
+        and(
+          eq(opportunities.status, "published"),
+          eq(opportunities.isPublished, true),
+          lt(opportunities.applicationDeadlineAt, now)
+        )
+      )
+      .orderBy(asc(opportunities.applicationDeadlineAt), asc(opportunities.id))
+      .limit(batchSize);
+    if (due.length === 0) return expired;
+
+    for (const item of due) {
+      expired.push(
+        await transitionOpportunity(actorUserId, item.id, "expired", {
+          reason: "Application deadline passed",
+        })
+      );
+    }
+  }
 }
 
 export async function listSources() {

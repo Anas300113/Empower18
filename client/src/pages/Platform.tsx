@@ -1095,26 +1095,77 @@ export function Careers() {
   );
 }
 
-export function Applications() {
-  const applications = trpc.applications.list.useQuery();
+const applicationStages = [
+  "interested",
+  "started",
+  "submitted",
+  "under_review",
+  "interview",
+  "offer",
+  "rejected",
+  "withdrawn",
+] as const;
+
+function ApplicationTrackerItem({ item }: { item: any }) {
   const utils = trpc.useUtils();
+  const [notes, setNotes] = useState(item.notes ?? "");
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDueAt, setTaskDueAt] = useState("");
+  const tasks = trpc.applications.tasks.list.useQuery({ applicationId: item.id });
+  const events = trpc.applications.events.useQuery({ applicationId: item.id });
+  const invalidate = () => {
+    utils.applications.list.invalidate();
+    utils.applications.tasks.list.invalidate({ applicationId: item.id });
+    utils.applications.events.invalidate({ applicationId: item.id });
+  };
   const updateStage = trpc.applications.updateStage.useMutation({
-    onSuccess: () => {
-      utils.applications.list.invalidate();
-      toast.success("Application stage updated.");
-    },
+    onSuccess: () => { invalidate(); toast.success("Application stage updated."); },
     onError: error => toast.error(error.message),
   });
-  const stages = [
-    "interested",
-    "started",
-    "submitted",
-    "under_review",
-    "interview",
-    "offer",
-    "rejected",
-    "withdrawn",
-  ] as const;
+  const updateNotes = trpc.applications.updateNotes.useMutation({
+    onSuccess: () => { invalidate(); toast.success("Notes saved."); },
+    onError: error => toast.error(error.message),
+  });
+  const createTask = trpc.applications.tasks.create.useMutation({
+    onSuccess: () => { setTaskTitle(""); setTaskDueAt(""); invalidate(); toast.success("Task added."); },
+    onError: error => toast.error(error.message),
+  });
+  const setTaskComplete = trpc.applications.tasks.setComplete.useMutation({
+    onSuccess: invalidate,
+    onError: error => toast.error(error.message),
+  });
+  return (
+    <div className="tracker-row">
+      <div className="tracker-step"><span className={`tracker-dot ${item.stage}`} /><span className="tracker-line" /></div>
+      <div className="tracker-main">
+        <div className="tracker-heading">
+          <div><h3>{item.opportunity.title}</h3><p>{item.opportunity.location || "Location not supplied"}</p></div>
+          <select aria-label={`Stage for ${item.opportunity.title}`} value={item.stage} disabled={updateStage.isPending} onChange={event => updateStage.mutate({ applicationId: item.id, stage: event.target.value as (typeof applicationStages)[number] })}>
+            {applicationStages.map(stage => <option key={stage} value={stage}>{stage.replaceAll("_", " ")}</option>)}
+          </select>
+        </div>
+        <div className="tracker-meta">
+          <span><CalendarDays size={14} /> {item.opportunity.applicationDeadlineAt ? `Closes ${formatDate(item.opportunity.applicationDeadlineAt)}` : "No closing date supplied"}</span>
+          {item.opportunity.externalApplicationUrl && <a className="text-link" href={item.opportunity.externalApplicationUrl} target="_blank" rel="noreferrer">Open official application <ExternalLink size={14} /></a>}
+        </div>
+        <label className="field-label">Private notes
+          <textarea value={notes} maxLength={5000} onChange={event => setNotes(event.target.value)} placeholder="Keep useful details, questions or preparation notes here." />
+        </label>
+        <button className="button button-outline" disabled={updateNotes.isPending} onClick={() => updateNotes.mutate({ applicationId: item.id, notes: notes.trim() || null })}>Save notes</button>
+        <div className="application-tasks">
+          <h4>Next steps</h4>
+          {tasks.data?.map(task => <label key={task.id} className="preference-row"><span><input type="checkbox" checked={task.isCompleted} onChange={event => setTaskComplete.mutate({ applicationId: item.id, taskId: task.id, isCompleted: event.target.checked })} /> {task.title}{task.dueAt ? ` — due ${formatDate(task.dueAt)}` : ""}</span></label>)}
+          <div className="settings-fields"><label><span>Task</span><input value={taskTitle} onChange={event => setTaskTitle(event.target.value)} placeholder="e.g. Check closing date" /></label><label><span>Due date</span><input type="date" value={taskDueAt} onChange={event => setTaskDueAt(event.target.value)} /></label></div>
+          <button className="button button-outline" disabled={!taskTitle.trim() || createTask.isPending} onClick={() => createTask.mutate({ applicationId: item.id, title: taskTitle.trim(), dueAt: taskDueAt ? new Date(`${taskDueAt}T12:00:00`) : null })}>Add task</button>
+        </div>
+        <div className="application-history"><h4>Stage history</h4>{events.data?.length ? events.data.map(event => <p className="field-hint" key={event.id}>{event.stage.replaceAll("_", " ")} — {formatDate(event.changedAt)}{event.reason ? `: ${event.reason}` : ""}</p>) : <p className="field-hint">No stage history yet.</p>}</div>
+      </div>
+    </div>
+  );
+}
+
+export function Applications() {
+  const applications = trpc.applications.list.useQuery();
   const activeCount =
     applications.data?.filter(
       item => !["offer", "rejected", "withdrawn"].includes(item.stage)
@@ -1170,60 +1221,7 @@ export function Applications() {
       )}
       {applications.data && applications.data.length > 0 && (
         <div className="tracker-list">
-          {applications.data.map(item => (
-            <div className="tracker-row" key={item.id}>
-              <div className="tracker-step">
-                <span className={`tracker-dot ${item.stage}`} />
-                <span className="tracker-line" />
-              </div>
-              <div className="tracker-main">
-                <div className="tracker-heading">
-                  <div>
-                    <h3>{item.opportunity.title}</h3>
-                    <p>
-                      {item.opportunity.location || "Location not supplied"}
-                    </p>
-                  </div>
-                  <select
-                    aria-label={`Stage for ${item.opportunity.title}`}
-                    value={item.stage}
-                    disabled={updateStage.isPending}
-                    onChange={event =>
-                      updateStage.mutate({
-                        applicationId: item.id,
-                        stage: event.target.value as (typeof stages)[number],
-                      })
-                    }
-                  >
-                    {stages.map(stage => (
-                      <option key={stage} value={stage}>
-                        {stage.replaceAll("_", " ")}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="tracker-meta">
-                  <span>
-                    <CalendarDays size={14} />{" "}
-                    {item.opportunity.applicationDeadlineAt
-                      ? `Closes ${formatDate(item.opportunity.applicationDeadlineAt)}`
-                      : "No closing date supplied"}
-                  </span>
-                  {item.opportunity.externalApplicationUrl && (
-                    <a
-                      className="text-link"
-                      href={item.opportunity.externalApplicationUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Open official application <ExternalLink size={14} />
-                    </a>
-                  )}
-                </div>
-                {item.notes && <p className="field-hint">{item.notes}</p>}
-              </div>
-            </div>
-          ))}
+          {applications.data.map(item => <ApplicationTrackerItem key={item.id} item={item} />)}
         </div>
       )}
       <div className="tracker-note">
@@ -1291,16 +1289,7 @@ export function Tools() {
               </span>
               <h2>{tool.title}</h2>
               <p>{tool.copy}</p>
-              <button
-                className="button button-outline"
-                onClick={() =>
-                  toast.info(
-                    `${tool.title} is ready for your content in the next step.`
-                  )
-                }
-              >
-                {tool.cta} <ArrowRight size={15} />
-              </button>
+              <p className="field-hint">This preparation tool is not available yet.</p>
             </div>
           );
         })}
@@ -1435,10 +1424,7 @@ export function Support() {
           <ShieldCheck size={19} />
           <span>
             <strong>Your safety matters</strong>
-            <small>
-              If you feel unsafe or worried about someone, speak to a trusted
-              adult or use the report link below.
-            </small>
+            <small>If you feel unsafe or worried about someone, speak to a trusted adult or contact emergency services.</small>
           </span>
         </div>
       </div>
@@ -1449,16 +1435,7 @@ export function Support() {
             <h3>{item.title}</h3>
             <p>{item.description}</p>
             <strong>{item.organisation}</strong>
-            <button
-              className="text-link"
-              onClick={() =>
-                toast.info(
-                  "This link will connect to the organisation's verified support page."
-                )
-              }
-            >
-              View support options <ExternalLink size={14} />
-            </button>
+            <span className="field-hint">Contact this organisation through its official channels.</span>
           </div>
         ))}
       </div>
@@ -1470,21 +1447,11 @@ export function Support() {
           <p className="eyebrow">Safeguarding and reporting</p>
           <h2>Something does not feel right?</h2>
           <p>
-            Report an incorrect listing, a concern about a message or a problem
-            with the platform. A trained team member should review it under the
-            programme’s safeguarding arrangements.
+            Online concern reporting is not available yet because Empower18 has
+            no designated safeguarding owner or approved response process.
           </p>
         </div>
-        <button
-          className="button button-primary"
-          onClick={() =>
-            toast.success(
-              "Report form opened — your details will only be used to respond."
-            )
-          }
-        >
-          Report a concern <ArrowRight size={16} />
-        </button>
+        <span className="field-hint">Speak to a trusted adult or the appropriate emergency service if someone is at immediate risk.</span>
       </div>
     </PlatformShell>
   );
@@ -1507,35 +1474,8 @@ export function Settings() {
           <section className="settings-section">
             <p className="eyebrow">Profile</p>
             <h2>About you</h2>
-            <div className="settings-fields">
-              <label>
-                <span>First name</span>
-                <input value="Alex" readOnly />
-              </label>
-              <label>
-                <span>Location</span>
-                <select defaultValue="Warwick">
-                  <option>Warwick</option>
-                  <option>Rugby</option>
-                  <option>Stratford-on-Avon</option>
-                </select>
-              </label>
-              <label>
-                <span>Education level</span>
-                <select defaultValue="Sixth form / college">
-                  <option>School</option>
-                  <option>Sixth form / college</option>
-                  <option>University</option>
-                  <option>Not currently studying</option>
-                </select>
-              </label>
-            </div>
-            <button
-              className="button button-primary"
-              onClick={() => toast.success("Profile changes saved.")}
-            >
-              Save changes <Check size={16} />
-            </button>
+            <p className="field-hint">Profile editing is completed during onboarding. It is not available from this settings page yet.</p>
+            <Link href="/onboarding" className="button button-primary">Review profile <ArrowRight size={16} /></Link>
           </section>
           <section className="settings-section">
             <p className="eyebrow">Accessibility</p>

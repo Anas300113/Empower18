@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, exists } from "drizzle-orm";
 import {
   applicationEvents,
   applicationTasks,
@@ -144,7 +144,12 @@ export async function updateApplicationStage(
             : before.submittedAt,
         updatedAt: now,
       })
-      .where(eq(studentApplications.id, applicationId))
+      .where(
+        and(
+          eq(studentApplications.id, applicationId),
+          eq(studentApplications.userId, userId)
+        )
+      )
       .returning();
     await tx.insert(applicationEvents).values({
       applicationId,
@@ -169,7 +174,12 @@ export async function updateApplicationNotes(
   const [updated] = await db
     .update(studentApplications)
     .set({ notes, updatedAt: new Date() })
-    .where(eq(studentApplications.id, applicationId))
+    .where(
+      and(
+        eq(studentApplications.id, applicationId),
+        eq(studentApplications.userId, userId)
+      )
+    )
     .returning();
   return updated;
 }
@@ -192,6 +202,22 @@ export async function listApplicationTasks(
       asc(applicationTasks.dueAt),
       asc(applicationTasks.createdAt)
     );
+}
+
+export async function listApplicationEvents(
+  userId: string,
+  applicationId: string
+) {
+  const application = await findOwnedApplication(userId, applicationId);
+  if (!application) throw new Error("Application not found");
+
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  return db
+    .select()
+    .from(applicationEvents)
+    .where(eq(applicationEvents.applicationId, applicationId))
+    .orderBy(desc(applicationEvents.changedAt));
 }
 
 export async function createApplicationTask(
@@ -233,7 +259,18 @@ export async function setApplicationTaskComplete(
     .where(
       and(
         eq(applicationTasks.id, taskId),
-        eq(applicationTasks.applicationId, applicationId)
+        eq(applicationTasks.applicationId, applicationId),
+        exists(
+          db
+            .select({ id: studentApplications.id })
+            .from(studentApplications)
+            .where(
+              and(
+                eq(studentApplications.id, applicationTasks.applicationId),
+                eq(studentApplications.userId, userId)
+              )
+            )
+        )
       )
     )
     .returning();

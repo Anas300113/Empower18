@@ -5,6 +5,8 @@ import {
   createDraft,
   createOrganisation,
   createSource,
+  expireDueOpportunities,
+  PublicationValidationError,
   getAdminDashboard,
   getAdminOpportunity,
   listAdminOpportunities,
@@ -215,16 +217,14 @@ export const adminRouter = router({
     approveAndPublish: adminProcedure
       .input(z.object({ id: z.string().uuid() }))
       .mutation(async ({ ctx, input }) => {
-        const opportunity = await getAdminOpportunity(input.id);
-        if (!opportunity)
-          throw new TRPCError({
-            code: "NOT_FOUND",
-            message: "Opportunity not found",
-          });
-        assertPublishable(opportunity);
-        return transitionOpportunity(ctx.user.id, input.id, "published", {
-          verificationEvidence: opportunity.verificationEvidence,
-        });
+        try {
+          return await transitionOpportunity(ctx.user.id, input.id, "published");
+        } catch (error) {
+          if (error instanceof PublicationValidationError) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+          }
+          throw error;
+        }
       }),
     returnForChanges: adminProcedure
       .input(
@@ -262,25 +262,9 @@ export const adminRouter = router({
           reason: input.reason,
         })
       ),
-    expireDue: adminProcedure.mutation(async ({ ctx }) => {
-      const opportunity = await listAdminOpportunities({
-        status: "published",
-        page: 1,
-        pageSize: 100,
-      });
-      const due = opportunity.filter(
-        (item: any) =>
-          item.applicationDeadlineAt &&
-          new Date(item.applicationDeadlineAt) < new Date()
-      );
-      return Promise.all(
-        due.map((item: any) =>
-          transitionOpportunity(ctx.user.id, item.id, "expired", {
-            reason: "Application deadline passed",
-          })
-        )
-      );
-    }),
+    expireDue: adminProcedure.mutation(({ ctx }) =>
+      expireDueOpportunities(ctx.user.id)
+    ),
   }),
   sources: router({
     list: adminProcedure.query(() => listSources()),
