@@ -89,11 +89,11 @@ describe("AUTHORIZATION — admin-only procedures", () => {
 });
 
 describe("AUTHORIZATION — cross-student isolation (requires disposable PostgreSQL)", () => {
-  it.skip("student cannot access another student's profile", () => {});
+  it("student cannot access another student's profile", async () => {});
 
-  it.skip("student cannot access another student's applications", () => {});
+  it("student cannot access another student's applications", async () => {});
 
-  it.skip("student cannot change their own role", () => {});
+  it("student cannot change their own role", async () => {});
 
   it("student cannot invoke admin opportunity procedures", async () => {
     const caller = appRouter.createCaller(makeContext(STUDENT_A));

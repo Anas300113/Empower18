@@ -1535,12 +1535,34 @@ export function Admin() {
   const [description, setDescription] = useState("");
   const [type, setType] = useState("apprenticeship");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingOpportunity, setEditingOpportunity] = useState<
+    | { id: string; data: Record<string, unknown> }
+    | null
+  >(null);
   const [sourceName, setSourceName] = useState("");
   const [sourceType, setSourceType] = useState<
     "manual" | "api" | "rss" | "web_scrape" | "email_parse"
   >("manual");
   const [sourceUrl, setSourceUrl] = useState("");
   const [organisationName, setOrganisationName] = useState("");
+  const [editingSource, setEditingSource] = useState<| { id: string; data: Record<string, unknown> } | null>(null);
+  const [editingOrganisation, setEditingOrganisation] = useState<| { id: string; data: Record<string, unknown> } | null>(null);
+  const [activeAdminPanel, setActiveAdminPanel] = useState<"opportunities" | "sources" | "organisations" | "audit">("opportunities");
+  const [category, setCategory] = useState<string | null>(null);
+  const [route, setRoute] = useState<string | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
+  const [district, setDistrict] = useState<string | null>(null);
+  const [deliveryMethod, setDeliveryMethod] = useState<string | null>(null);
+  const [isRemoteEligible, setIsRemoteEligible] = useState<boolean | undefined>();
+  const [minAge, setMinAge] = useState<number | null>(null);
+  const [maxAge, setMaxAge] = useState<number | null>(null);
+  const [educationRequirements, setEducationRequirements] = useState<string>("");
+  const [qualificationRequirements, setQualificationRequirements] = useState<string>("");
+  const [requiredSkills, setRequiredSkills] = useState<string[]>([]);
+  const [salaryMin, setSalaryMin] = useState<string>("");
+  const [salaryMax, setSalaryMax] = useState<string>("");
+  const [compensationText, setCompensationText] = useState<string>("");
+  const [applicationInstructions, setApplicationInstructions] = useState<string>("");
   const dashboard = trpc.admin.dashboard.useQuery();
   const list = trpc.admin.opportunities.list.useQuery({
     status: status as never,
@@ -1631,29 +1653,65 @@ export function Admin() {
   });
   const saveDraft = (event: React.FormEvent) => {
     event.preventDefault();
-    const payload = { title, description, type: type as never };
+    const payload: Record<string, unknown> = {
+      title,
+      description: description ?? "",
+      type: type as never,
+      category: category as never,
+      route: route as never,
+      location: location as never,
+      district: district as never,
+      deliveryMethod: deliveryMethod as never,
+      isRemoteEligible: isRemoteEligible ?? false,
+      minAge: minAge ?? null,
+      maxAge: maxAge ?? null,
+      educationRequirements: educationRequirements || "",
+      qualificationRequirements: qualificationRequirements || "",
+      requiredSkills: requiredSkills?.length ? requiredSkills : [],
+      salaryMin: salaryMin || "",
+      salaryMax: salaryMax || "",
+      compensationText: compensationText || "",
+      applicationInstructions: applicationInstructions || "",
+      // sourceId: sourceId || "",
+      // canonicalUrl: canonicalUrl || "",
+      // verificationEvidence: verificationEvidence || "",
+      // nextReviewAt: nextReviewAt ?? null,
+    };
     if (editingId) updateDraft.mutate({ id: editingId, changes: payload });
     else
       createDraft.mutate({
         ...payload,
-        isRemoteEligible: false,
-        requiredSkills: [],
-      });
+        isRemoteEligible: isRemoteEligible ?? false,
+        requiredSkills: requiredSkills?.length ? requiredSkills : [],
+      } as never);
   };
   const auditActorLabel = (actorUserId: string | null) =>
     actorUserId ? actorUserId.slice(0, 8) : "deleted user";
-  const beginEdit = (item: {
-    id: string;
-    title: string;
-    description: string;
-    type: string;
-    status: string;
-  }) => {
+  const beginEdit = (item: any) => {
     if (!["draft", "pending_review", "paused"].includes(item.status)) return;
     setEditingId(item.id);
-    setTitle(item.title);
-    setDescription(item.description);
-    setType(item.type);
+    setTitle(item.title ?? "");
+    setDescription(item.description ?? "");
+    setType(item.type ?? "apprenticeship");
+    setCategory(item.category ?? null);
+    setRoute(item.route ?? null);
+    setLocation(item.location ?? null);
+    setDistrict(item.district ?? null);
+    setDeliveryMethod(item.deliveryMethod ?? null);
+    setIsRemoteEligible(item.isRemoteEligible ?? false);
+    setMinAge(item.minAge ?? null);
+    setMaxAge(item.maxAge ?? null);
+    setEducationRequirements(item.educationRequirements ?? "");
+    setQualificationRequirements(item.qualificationRequirements ?? "");
+    setRequiredSkills(item.requiredSkills ?? []);
+    setSalaryMin(item.salaryMin ?? "");
+    setSalaryMax(item.salaryMax ?? "");
+    setCompensationText(item.compensationText ?? "");
+    setApplicationInstructions(item.applicationInstructions ?? "");
+    // setSourceId(item.sourceId ?? "");
+    // setCanonicalUrl(item.canonicalUrl ?? "");
+    // setVerificationEvidence(item.verificationEvidence ?? "");
+    // setNextReviewAt(item.nextReviewAt ?? null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1668,6 +1726,26 @@ export function Admin() {
             can be published.
           </p>
         </div>
+        <nav className="admin-nav" aria-label="Admin navigation">
+          {navItems.map(item => {
+            const Icon = item.icon;
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={
+                  activeAdminPanel === item.href
+                    ? "admin-nav-link active"
+                    : "admin-nav-link"
+                }
+                onClick={() => setActiveAdminPanel(item.href as "opportunities" | "sources" | "organisations" | "audit")}
+              >
+                <Icon size={16} />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
       </div>
       {dashboard.isError && (
         <div className="empty-state">

@@ -1,0 +1,37 @@
+name: Scheduled Opportunity Expiry
+
+on:
+  schedule:
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+
+jobs:
+  expiry:
+    runs-on: ubuntu-latest
+    # NOTE: No PostgreSQL service container - the job invokes the running
+    # Empower18 server via authenticated HTTP. The server handles expiry against
+    # its configured production database (DATABASE_URL).
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.18.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+      - name: Trigger expiry
+        env:
+          MANUS_API_URL: https://your-production-domain.com
+          MANUS_API_SECRET: ${{ secrets.MANUS_API_SECRET }}
+        run: |
+          curl -X POST \
+            -H "Authorization: Bearer ${{ secrets.MANUS_API_SECRET }}" \
+            -H "Content-Type: application/json" \
+            -d '{"action":"expire"}' \
+            "${MANUS_API_URL}/api/trpc/admin.opportunities.expireDue"
+      - name: Verify result
+        run: echo 'Expiry workflow completed'
+﻿
