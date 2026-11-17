@@ -1544,7 +1544,27 @@ export function Admin() {
     "manual" | "api" | "rss" | "web_scrape" | "email_parse"
   >("manual");
   const [sourceUrl, setSourceUrl] = useState("");
+  const [sourcePermittedUse, setSourcePermittedUse] = useState("");
+  const [sourceTermsOfServiceUrl, setSourceTermsOfServiceUrl] = useState("");
+  const [sourceRetrievalSchedule, setSourceRetrievalSchedule] = useState("");
+  const [sourceReliabilityStatus, setSourceReliabilityStatus] = useState<
+    "unknown" | "healthy" | "degraded" | "unhealthy" | undefined
+  >("unknown");
+  const [sourceAdministratorOwner, setSourceAdministratorOwner] = useState("");
   const [organisationName, setOrganisationName] = useState("");
+  const [organisationType, setOrganisationType] = useState<
+    | "employer"
+    | "training_provider"
+    | "college"
+    | "university"
+    | "charity"
+    | "government"
+    | "agency"
+    | "other"
+  >();
+  const [organisationWebsite, setOrganisationWebsite] = useState("");
+  const [organisationDescription, setOrganisationDescription] = useState("");
+  const [organisationLocation, setOrganisationLocation] = useState("");
   const [editingSource, setEditingSource] = useState<| { id: string; data: Record<string, unknown> } | null>(null);
   const [editingOrganisation, setEditingOrganisation] = useState<| { id: string; data: Record<string, unknown> } | null>(null);
   const [activeAdminPanel, setActiveAdminPanel] = useState<"opportunities" | "sources" | "organisations" | "audit">("opportunities");
@@ -1687,6 +1707,16 @@ export function Admin() {
   };
   const auditActorLabel = (actorUserId: string | null) =>
     actorUserId ? actorUserId.slice(0, 8) : "deleted user";
+  const formatAuditDiff = (value: unknown): string => {
+    if (value === null || value === undefined) return "null";
+    if (typeof value === "object") {
+      const obj = value as Record<string, unknown>;
+      return Object.entries(obj)
+        .map(([k, v]) => `  ${k}: ${typeof v === "object" ? JSON.stringify(v) : v}`)
+        .join("\n");
+    }
+    return String(value);
+  };
   const beginEdit = (item: any) => {
     if (!["draft", "pending_review", "paused"].includes(item.status)) return;
     setEditingId(item.id);
@@ -1948,6 +1978,11 @@ export function Admin() {
                     name: sourceName,
                     type: sourceType,
                     officialUrl: sourceUrl || null,
+                    permittedUse: sourcePermittedUse || null,
+                    termsOfServiceUrl: sourceTermsOfServiceUrl || null,
+                    retrievalSchedule: sourceRetrievalSchedule || null,
+                    reliabilityStatus: sourceReliabilityStatus,
+                    administratorOwner: sourceAdministratorOwner || null,
                   });
                 }}
               >
@@ -1981,6 +2016,62 @@ export function Admin() {
                     value={sourceUrl}
                     onChange={event => setSourceUrl(event.target.value)}
                     placeholder="https://…"
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  <span>Permitted Use</span>
+                  <textarea
+                    value={sourcePermittedUse || ""}
+                    onChange={event =>
+                      setSourcePermittedUse(event.target.value)
+                    }
+                    rows={2}
+                    placeholder="Describe how content from this source may be used."
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  <span>Terms of Service URL</span>
+                  <input
+                    type="url"
+                    value={sourceTermsOfServiceUrl || ""}
+                    onChange={event =>
+                      setSourceTermsOfServiceUrl(event.target.value)
+                    }
+                    placeholder="https://…"
+                  />
+                </label>
+                <label>
+                  <span>Retrieval Schedule</span>
+                  <input
+                    value={sourceRetrievalSchedule || ""}
+                    onChange={event =>
+                      setSourceRetrievalSchedule(event.target.value)
+                    }
+                    placeholder="e.g. daily, weekly, monthly"
+                  />
+                </label>
+                <label>
+                  <span>Reliability Status</span>
+                  <select
+                    value={sourceReliabilityStatus || "unknown"}
+                    onChange={event =>
+                      setSourceReliabilityStatus(event.target.value as "unknown" | "healthy" | "degraded" | "unhealthy")
+                    }
+                  >
+                    <option value="unknown">Unknown</option>
+                    <option value="healthy">Healthy</option>
+                    <option value="degraded">Degraded</option>
+                    <option value="unhealthy">Unhealthy</option>
+                  </select>
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  <span>Administrator Owner</span>
+                  <input
+                    value={sourceAdministratorOwner || ""}
+                    onChange={event =>
+                      setSourceAdministratorOwner(event.target.value)
+                    }
+                    placeholder="Responsible person or team"
                   />
                 </label>
                 <button
@@ -2037,7 +2128,13 @@ export function Admin() {
                 className="settings-fields"
                 onSubmit={event => {
                   event.preventDefault();
-                  createOrganisation.mutate({ name: organisationName });
+                  createOrganisation.mutate({
+                    name: organisationName,
+                    type: organisationType || null,
+                    website: organisationWebsite || null,
+                    description: organisationDescription || null,
+                    location: organisationLocation || null,
+                  });
                 }}
               >
                 <label>
@@ -2046,6 +2143,53 @@ export function Admin() {
                     required
                     value={organisationName}
                     onChange={event => setOrganisationName(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span>Organisation type</span>
+                  <select
+                    value={organisationType || ""}
+                    onChange={event =>
+                      setOrganisationType(event.target.value as any || null)
+                    }
+                  >
+                    <option value="">Select type</option>
+                    <option value="employer">Employer</option>
+                    <option value="training_provider">Training Provider</option>
+                    <option value="college">College</option>
+                    <option value="university">University</option>
+                    <option value="charity">Charity</option>
+                    <option value="government">Government</option>
+                    <option value="agency">Agency</option>
+                    <option value="other">Other</option>
+                  </select>
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  <span>Website</span>
+                  <input
+                    type="url"
+                    value={organisationWebsite}
+                    onChange={event => setOrganisationWebsite(event.target.value)}
+                    placeholder="https://…"
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  <span>Description</span>
+                  <textarea
+                    value={organisationDescription || ""}
+                    onChange={event =>
+                      setOrganisationDescription(event.target.value)
+                    }
+                    rows={2}
+                    placeholder="Describe the organisation."
+                  />
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  <span>Location</span>
+                  <input
+                    value={organisationLocation}
+                    onChange={event => setOrganisationLocation(event.target.value)}
+                    placeholder="City / area"
                   />
                 </label>
                 <div className="inline-actions" style={{ alignItems: "end" }}>
@@ -2084,19 +2228,41 @@ export function Admin() {
             {audit.isLoading && (
               <p className="field-hint">Loading audit history…</p>
             )}
-            {audit.data?.map(entry => (
+            {audit.data?.map(entry => {
+            const details = entry.details as Record<string, unknown> | null;
+            const before = details?.before as Record<string, unknown> | undefined;
+            const after = details?.after as Record<string, unknown> | undefined;
+            const hasChanges = before !== undefined || after !== undefined;
+            return (
               <div className="admin-row" key={entry.id}>
                 <div>
                   <strong>{entry.action.replaceAll(".", " ")}</strong>
                   <small>
                     {entry.targetType} · {formatDate(entry.createdAt)}
                   </small>
+                  {hasChanges && (
+                    <div className="audit-changes">
+                      {before && (
+                        <div className="audit-before">
+                          <small>Before:</small>
+                          <pre>{formatAuditDiff(before)}</pre>
+                        </div>
+                      )}
+                      {after && (
+                        <div className="audit-after">
+                          <small>After:</small>
+                          <pre>{formatAuditDiff(after)}</pre>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
                 <span className="admin-state">
                   {auditActorLabel(entry.actorUserId)}
                 </span>
               </div>
-            ))}
+            );
+          })}
             {audit.data?.length === 0 && (
               <p className="field-hint">
                 No administrative actions have been recorded yet.
