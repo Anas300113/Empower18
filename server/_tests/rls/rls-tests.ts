@@ -232,7 +232,7 @@ describe("RLS — Privilege escalation prevention", () => {
       } catch (e: any) {
         rejected = true;
       }
-      expect(rejected).toBe(true, "INSERT should be rejected by RLS policy");
+      expect(rejected).toBe(true);
     } finally {
       await dropTestUsers(sql);
       await sql.end();
