@@ -34,4 +34,3 @@ jobs:
             "${MANUS_API_URL}/api/trpc/admin.opportunities.expireDue"
       - name: Verify result
         run: echo 'Expiry workflow completed'
-﻿
