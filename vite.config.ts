@@ -185,6 +185,18 @@ export default defineConfig({
   build: {
     outDir: path.resolve(import.meta.dirname, "dist/public"),
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          react: ["react", "react-dom"],
+          trpc: ["@trpc/client", "@trpc/react-query"],
+          query: ["@tanstack/react-query"],
+          ui: ["lucide-react", "sonner", "clsx", "tailwind-merge"],
+          charts: ["recharts"],
+          motion: ["framer-motion"],
+        },
+      },
+    },
   },
   server: {
     host: true,
