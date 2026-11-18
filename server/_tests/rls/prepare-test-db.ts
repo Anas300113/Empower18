@@ -25,6 +25,9 @@ try {
     await sql.unsafe(`
       DO $$
       BEGIN
+        IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+          CREATE ROLE anon NOLOGIN;
+        END IF;
         IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
           CREATE ROLE authenticated NOLOGIN;
         END IF;
@@ -55,7 +58,7 @@ try {
       GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated;
     `);
     console.log(
-      "Bootstrapped disposable test auth schema and authenticated role."
+      "Bootstrapped disposable test auth schema and anon/authenticated roles."
     );
   } else {
     await sql.unsafe(`

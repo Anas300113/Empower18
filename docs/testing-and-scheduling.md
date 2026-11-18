@@ -21,12 +21,13 @@ The helper scripts only connect to the explicit `TEST_DATABASE_URL`. The RLS
 tests roll back their fixture rows after each test; the expiry worker test
 removes its isolated fixtures during teardown.
 
-The test bootstrap provides a minimal `auth.uid()` implementation and an actual
-PostgreSQL `authenticated` role. The tests create fixture rows inside a
-transaction, switch to that role, set the JWT subject claim, assert both allowed
-and denied access, then roll the transaction back. This verifies the checked-in
-PostgreSQL RLS policies in an isolated database; it is not a full Supabase Auth
-service integration test and must never be run against production.
+The test bootstrap provides a minimal `auth.uid()` implementation and the
+PostgreSQL `anon` and `authenticated` roles expected by the checked-in Supabase
+migrations. The tests create fixture rows inside a transaction, switch to the
+authenticated role, set the JWT subject claim, assert both allowed and denied
+access, then roll the transaction back. This verifies the checked-in PostgreSQL
+RLS policies in an isolated database; it is not a full Supabase Auth service
+integration test and must never be run against production.
 
 ## Opportunity expiry scheduling
 

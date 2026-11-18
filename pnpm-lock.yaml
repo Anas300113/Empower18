@@ -145,6 +145,9 @@ importers:
       framer-motion:
         specifier: ^12.23.22
         version: 12.23.22(react-dom@19.2.1(react@19.2.1))(react@19.2.1)
+      h3:
+        specifier: ^2.0.8
+        version: 2.0.8(crossws@0.4.17(srvx@1.0.8))(ocache@0.3.2)
       input-otp:
         specifier: ^1.4.2
         version: 1.4.2(react-dom@19.2.1(react@19.2.1))(react@19.2.1)

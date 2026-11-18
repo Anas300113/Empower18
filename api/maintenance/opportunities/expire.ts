@@ -4,7 +4,7 @@ import {
   getMethod,
   setHeader,
   setResponseStatus,
-} from "nitro/h3";
+} from "h3";
 import { handleOpportunityExpiry } from "../../../server/_core/maintenance";
 
 export default defineHandler(async event => {

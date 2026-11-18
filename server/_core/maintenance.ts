@@ -1,7 +1,21 @@
 import { createHash, timingSafeEqual } from "node:crypto";
-import type { Express, Request, Response } from "express";
 import { getUserRoles } from "../db/profile";
 import { expireDueOpportunities } from "../db/opportunities";
+
+type MaintenanceRequest = { header(name: string): string | undefined };
+type MaintenanceResponse = {
+  status(code: number): MaintenanceResponse;
+  json(body: MaintenanceResult["body"]): unknown;
+};
+type MaintenanceRouteRegistrar = {
+  post(
+    path: string,
+    handler: (
+      request: MaintenanceRequest,
+      response: MaintenanceResponse
+    ) => void | Promise<void>
+  ): unknown;
+};
 
 export type MaintenanceResult = {
   status: number;
@@ -60,12 +74,16 @@ export async function handleOpportunityExpiry(
 }
 
 /** Registers the maintenance operation on the long-running Express server. */
-export function registerMaintenanceRoutes(app: Express): void {
+export function registerMaintenanceRoutes(
+  app: MaintenanceRouteRegistrar
+): void {
   app.post(
     "/api/maintenance/opportunities/expire",
-    async (req: Request, res: Response) => {
-      const result = await handleOpportunityExpiry(req.header("authorization"));
-      res.status(result.status).json(result.body);
+    async (request, response) => {
+      const result = await handleOpportunityExpiry(
+        request.header("authorization")
+      );
+      response.status(result.status).json(result.body);
     }
   );
 }
