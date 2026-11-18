@@ -16,7 +16,9 @@ const RUNTIME_URL = process.env.DATABASE_URL ?? "";
 const MIGRATION_URL =
   process.env.MIGRATION_DATABASE_URL ?? process.env.DATABASE_URL ?? "";
 
-const POOL_MAX = Number(process.env.DATABASE_POOL_MAX ?? "10");
+const POOL_MAX = Number(
+  process.env.DATABASE_POOL_MAX ?? (process.env.VERCEL ? "1" : "10")
+);
 const IDLE_TIMEOUT = Number(process.env.DATABASE_IDLE_TIMEOUT ?? "20");
 const CONNECT_TIMEOUT = Number(process.env.DATABASE_CONNECT_TIMEOUT ?? "10");
 

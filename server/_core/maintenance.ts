@@ -3,6 +3,11 @@ import type { Express, Request, Response } from "express";
 import { getUserRoles } from "../db/profile";
 import { expireDueOpportunities } from "../db/opportunities";
 
+export type MaintenanceResult = {
+  status: number;
+  body: { error: string } | { expiredCount: number };
+};
+
 function matchesSecret(candidate: string, expected: string): boolean {
   const candidateDigest = createHash("sha256").update(candidate).digest();
   const expectedDigest = createHash("sha256").update(expected).digest();
@@ -10,45 +15,57 @@ function matchesSecret(candidate: string, expected: string): boolean {
 }
 
 /**
- * Registers a server-only maintenance endpoint for the external scheduler.
- * It is unavailable unless a strong secret and an existing admin actor UUID
- * are configured. It never accepts an actor identity from the request body.
+ * Performs the protected expiry operation, shared by Express and Vercel.
+ * It never accepts an actor identity from the request.
  */
+export async function handleOpportunityExpiry(
+  authorization: string | undefined
+): Promise<MaintenanceResult> {
+  const expectedSecret = process.env.OPPORTUNITY_EXPIRY_SECRET;
+  const actorUserId = process.env.OPPORTUNITY_EXPIRY_ACTOR_USER_ID;
+  if (!expectedSecret || expectedSecret.length < 32 || !actorUserId) {
+    return {
+      status: 503,
+      body: { error: "Maintenance endpoint is not configured" },
+    };
+  }
+
+  const match = /^Bearer\s+(.+)$/i.exec(authorization ?? "");
+  if (!match || !matchesSecret(match[1], expectedSecret)) {
+    return { status: 401, body: { error: "Unauthorized" } };
+  }
+
+  if (!process.env.DATABASE_URL) {
+    return {
+      status: 503,
+      body: { error: "Maintenance database is not configured" },
+    };
+  }
+
+  try {
+    const roles = await getUserRoles(actorUserId);
+    if (!roles.includes("admin")) {
+      return {
+        status: 503,
+        body: { error: "Configured maintenance actor is not an administrator" },
+      };
+    }
+
+    const expired = await expireDueOpportunities(actorUserId);
+    return { status: 200, body: { expiredCount: expired.length } };
+  } catch (error) {
+    console.error("Opportunity expiry maintenance failed", error);
+    return { status: 500, body: { error: "Opportunity expiry failed" } };
+  }
+}
+
+/** Registers the maintenance operation on the long-running Express server. */
 export function registerMaintenanceRoutes(app: Express): void {
   app.post(
     "/api/maintenance/opportunities/expire",
     async (req: Request, res: Response) => {
-      const expectedSecret = process.env.OPPORTUNITY_EXPIRY_SECRET;
-      const actorUserId = process.env.OPPORTUNITY_EXPIRY_ACTOR_USER_ID;
-      if (!expectedSecret || expectedSecret.length < 32 || !actorUserId) {
-        res
-          .status(503)
-          .json({ error: "Maintenance endpoint is not configured" });
-        return;
-      }
-
-      const authorization = req.header("authorization") ?? "";
-      const match = /^Bearer\s+(.+)$/i.exec(authorization);
-      if (!match || !matchesSecret(match[1], expectedSecret)) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      try {
-        const roles = await getUserRoles(actorUserId);
-        if (!roles.includes("admin")) {
-          res.status(503).json({
-            error: "Configured maintenance actor is not an administrator",
-          });
-          return;
-        }
-
-        const expired = await expireDueOpportunities(actorUserId);
-        res.status(200).json({ expiredCount: expired.length });
-      } catch (error) {
-        console.error("Opportunity expiry maintenance failed", error);
-        res.status(500).json({ error: "Opportunity expiry failed" });
-      }
+      const result = await handleOpportunityExpiry(req.header("authorization"));
+      res.status(result.status).json(result.body);
     }
   );
 }

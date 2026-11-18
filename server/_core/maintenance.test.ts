@@ -40,6 +40,7 @@ async function stopTestServer(server: Server): Promise<void> {
 beforeEach(() => {
   vi.stubEnv("OPPORTUNITY_EXPIRY_SECRET", SECRET);
   vi.stubEnv("OPPORTUNITY_EXPIRY_ACTOR_USER_ID", ACTOR_ID);
+  vi.stubEnv("DATABASE_URL", "postgresql://test-only.invalid/empower18");
   mocks.getUserRoles.mockReset();
   mocks.expireDueOpportunities.mockReset();
 });
@@ -77,6 +78,28 @@ describe("Opportunity expiry maintenance endpoint", () => {
         }
       );
       expect(response.status).toBe(401);
+      expect(mocks.getUserRoles).not.toHaveBeenCalled();
+      expect(mocks.expireDueOpportunities).not.toHaveBeenCalled();
+    } finally {
+      await stopTestServer(server);
+    }
+  });
+
+  it("fails closed when the runtime database URL is missing", async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    const { server, url } = await startTestServer();
+    try {
+      const response = await fetch(
+        `${url}/api/maintenance/opportunities/expire`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${SECRET}` },
+        }
+      );
+      expect(response.status).toBe(503);
+      expect(await response.json()).toEqual({
+        error: "Maintenance database is not configured",
+      });
       expect(mocks.getUserRoles).not.toHaveBeenCalled();
       expect(mocks.expireDueOpportunities).not.toHaveBeenCalled();
     } finally {
