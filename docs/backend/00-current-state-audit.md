@@ -1,10 +1,12 @@
-# 00 — Current State Audit
+# 00 — Historical Baseline Audit (Superseded)
 
 **Repository:** https://github.com/Anas300113/Empower18  
 **Branch:** `main` (clean, up to date with `origin/main`)  
 **Commit:** `f3357c5ccb6e0c3e810486395e1b2f3267d6d154`  
-**Audited:** 2026-11-13  
+**Audited:** 2026-11-13
 **Auditor:** Principal Backend Engineering (Cline)
+
+> Historical snapshot captured before the PostgreSQL, Supabase Auth, RLS, and feature-router work. Its findings describe the repository at the listed commit only and are not a statement of the current system.
 
 ---
 
@@ -18,21 +20,20 @@ The database is **MySQL** with a single `users` table backing a custom Manus OAu
 
 ## 2. Verified tech stack
 
-| Layer | Technology | Version / source |
-|---|---|---|
-| Frontend | React 19, Vite 7, TypeScript 5.9, Tailwind 4, Radix UI, Lucide, wouter | `package.json` |
-| API | tRPC 11, `@trpc/react-query`, TanStack Query | `package.json` |
-| Backend | Express 4 | `package.json` |
-| ORM | Drizzle ORM 0.45, `drizzle-orm/mysql-core` | `package.json`, `drizzle.config.ts` (dialect: `mysql`) |
-| Database | MySQL | `server/db.ts` (`drizzle-orm/mysql2`) |
-| Auth | Manus OAuth (custom), `jose` 6.1.0 (JWT) | `server/_core/sdk.ts`, `server/_core/oauth.ts` |
-| Storage | Forge/Manus presigned S3 (`server/storage.ts`) | unwired in routers |
-| AI helpers | `llm.ts`, `imageGeneration.ts`, `voiceTranscription.ts` | present, **not registered** in `routers.ts` |
-| Tests | Vitest 2 (`server/**/*.test.ts`) | 2 test files only |
-| Package manager | pnpm 10.18.0 workspace | `packageManager` |
+| Layer           | Technology                                                             | Version / source                                       |
+| --------------- | ---------------------------------------------------------------------- | ------------------------------------------------------ |
+| Frontend        | React 19, Vite 7, TypeScript 5.9, Tailwind 4, Radix UI, Lucide, wouter | `package.json`                                         |
+| API             | tRPC 11, `@trpc/react-query`, TanStack Query                           | `package.json`                                         |
+| Backend         | Express 4                                                              | `package.json`                                         |
+| ORM             | Drizzle ORM 0.45, `drizzle-orm/mysql-core`                             | `package.json`, `drizzle.config.ts` (dialect: `mysql`) |
+| Database        | MySQL                                                                  | `server/db.ts` (`drizzle-orm/mysql2`)                  |
+| Auth            | Manus OAuth (custom), `jose` 6.1.0 (JWT)                               | `server/_core/sdk.ts`, `server/_core/oauth.ts`         |
+| Storage         | Forge/Manus presigned S3 (`server/storage.ts`)                         | unwired in routers                                     |
+| AI helpers      | `llm.ts`, `imageGeneration.ts`, `voiceTranscription.ts`                | present, **not registered** in `routers.ts`            |
+| Tests           | Vitest 2 (`server/**/*.test.ts`)                                       | 2 test files only                                      |
+| Package manager | pnpm 10.18.0 workspace                                                 | `packageManager`                                       |
 
 `node_modules` is **not installed** (could not run build/typecheck/tests during this audit). `.env` and `.env.example` are both **missing**.
-
 
 ---
 
@@ -63,6 +64,7 @@ CREATE TABLE IF NOT EXISTS `users` (
 ## 4. Authentication (verified)
 
 **Manus OAuth flow:**
+
 1. Client calls `startLogin()` → navigates to Manus OAuth portal with `appId`, `redirectUri`, `state` (nonce + redirect URI)
 2. `__Host-oauth_state` nonce cookie set (SameSite=None, Secure, 10 min TTL)
 3. Callback `/api/oauth/callback` exchanges `code` + `state` for Manus access token, fetches `userInfo` (openId, name, email, platform)
@@ -71,11 +73,13 @@ CREATE TABLE IF NOT EXISTS `users` (
 6. `sdk.authenticateRequest` verifies JWT on each tRPC request via `jwtVerify`, binds to `MANUS_PROJECT_ID`, auto-syncs user
 
 **tRPC procedures:**
+
 - `publicProcedure` — no auth
 - `protectedProcedure` — requires `ctx.user`
 - `adminProcedure` — requires `ctx.user.role === 'admin'`
 
 **Gaps:**
+
 - No registration, no password reset, no email verification, no account deletion
 - No supported OAuth providers (Google/Apple/Microsoft) beyond Manus
 - Role is application data in `users.role`; admin escalation via `ENV.ownerOpenId` (fragile)
@@ -90,24 +94,23 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 ## 5. Feature state — real vs prototype
 
-| Area | Frontend | Backend API | Database | Persists? | Notes |
-|---|---|---|---|---|---|
-| Login/logout | Yes | Yes (Manus) | Yes (`users`) | Partial | Cookie session only |
-| Registration | No | No | No | No | Missing entirely |
-| Password reset | No | No | No | No | Missing |
-| Onboarding | Yes (local state) | No | No | No | Not saved |
-| Profile/settings | Yes (static values) | No | No | No | Hard-coded "Alex" |
-| Opportunities | Yes (static `data.ts`) | No | No | No | Sample data, labelled prototype |
-| Saved opportunities | No | No | No | No | Missing |
-| Application tracker | Yes (static) | No | No | No | Static in `data.ts` |
-| CV builder | Yes (shell) | No | No | No | No structured schema |
-| AI assistant | Yes (shell) | No | No | No | Helpers present, unwired |
-| Interview practice | Yes (shell) | No | No | No | Missing |
-| UCAS assistant | Yes (shell) | No | No | No | Missing |
-| Notifications | Yes (static) | No | No | No | Static in `data.ts` |
-| Admin | Yes (static sample) | Partially (`adminProcedure`, `notifyOwner`) | Yes (role column) | Partial | No review queue, no audit log |
-| File uploads | No | Partially (`storage.ts`) | No | No | Unwired in routers |
-
+| Area                | Frontend               | Backend API                                 | Database          | Persists? | Notes                           |
+| ------------------- | ---------------------- | ------------------------------------------- | ----------------- | --------- | ------------------------------- |
+| Login/logout        | Yes                    | Yes (Manus)                                 | Yes (`users`)     | Partial   | Cookie session only             |
+| Registration        | No                     | No                                          | No                | No        | Missing entirely                |
+| Password reset      | No                     | No                                          | No                | No        | Missing                         |
+| Onboarding          | Yes (local state)      | No                                          | No                | No        | Not saved                       |
+| Profile/settings    | Yes (static values)    | No                                          | No                | No        | Hard-coded "Alex"               |
+| Opportunities       | Yes (static `data.ts`) | No                                          | No                | No        | Sample data, labelled prototype |
+| Saved opportunities | No                     | No                                          | No                | No        | Missing                         |
+| Application tracker | Yes (static)           | No                                          | No                | No        | Static in `data.ts`             |
+| CV builder          | Yes (shell)            | No                                          | No                | No        | No structured schema            |
+| AI assistant        | Yes (shell)            | No                                          | No                | No        | Helpers present, unwired        |
+| Interview practice  | Yes (shell)            | No                                          | No                | No        | Missing                         |
+| UCAS assistant      | Yes (shell)            | No                                          | No                | No        | Missing                         |
+| Notifications       | Yes (static)           | No                                          | No                | No        | Static in `data.ts`             |
+| Admin               | Yes (static sample)    | Partially (`adminProcedure`, `notifyOwner`) | Yes (role column) | Partial   | No review queue, no audit log   |
+| File uploads        | No                     | Partially (`storage.ts`)                    | No                | No        | Unwired in routers              |
 
 ---
 
@@ -122,14 +125,14 @@ CREATE TABLE IF NOT EXISTS `users` (
 
 ## 7. Environment & configuration
 
-| Item | Status |
-|---|---|
-| `.env` | Missing |
-| `.env.example` | Missing |
-| `DATABASE_URL` | Referenced in `drizzle.config.ts` and `server/db.ts` but not configured |
-| Supabase variables | None present (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, etc. absent) |
-| AI variables | `MANUS_FORGE_API_URL`/`MANUS_FORGE_API_KEY` used via `ENV.forgeApiUrl`/`forgeApiKey` |
-| No secrets exposed in repo | Confirmed (`.env` gitignored, no `.env` present) |
+| Item                       | Status                                                                               |
+| -------------------------- | ------------------------------------------------------------------------------------ |
+| `.env`                     | Missing                                                                              |
+| `.env.example`             | Missing                                                                              |
+| `DATABASE_URL`             | Referenced in `drizzle.config.ts` and `server/db.ts` but not configured              |
+| Supabase variables         | None present (`SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, etc. absent)               |
+| AI variables               | `MANUS_FORGE_API_URL`/`MANUS_FORGE_API_KEY` used via `ENV.forgeApiUrl`/`forgeApiKey` |
+| No secrets exposed in repo | Confirmed (`.env` gitignored, no `.env` present)                                     |
 
 ---
 
@@ -180,4 +183,3 @@ The repository is a **frontend prototype with a minimal auth foundation**. To be
 5. Comprehensive test suite including mandatory cross-user isolation tests
 
 See `01-feature-to-backend-map.md` and `02-existing-risks-and-gaps.md` for details.
-

@@ -407,6 +407,13 @@ function OpportunityRow({
 
 export function Dashboard() {
   const { user } = useAuth();
+  const utils = trpc.useUtils();
+  const saveOpportunity = trpc.opportunities.save.useMutation({
+    onSuccess: () => utils.opportunities.savedList.invalidate(),
+  });
+  const unsaveOpportunity = trpc.opportunities.unsave.useMutation({
+    onSuccess: () => utils.opportunities.savedList.invalidate(),
+  });
   const opportunitiesQuery = trpc.opportunities.list.useQuery({
     page: 1,
     pageSize: 2,
@@ -490,7 +497,20 @@ export function Dashboard() {
               saved={Boolean(
                 savedQuery.data?.some(saved => saved.opportunityId === item.id)
               )}
-              onSave={() => undefined}
+              onSave={() => {
+                if (!user) {
+                  toast.error("Sign in to save opportunities.");
+                  return;
+                }
+                const currentlySaved = Boolean(
+                  savedQuery.data?.some(
+                    saved => saved.opportunityId === item.id
+                  )
+                );
+                (currentlySaved ? unsaveOpportunity : saveOpportunity).mutate({
+                  opportunityId: item.id,
+                });
+              }}
             />
           ))}
           {!opportunitiesQuery.isLoading &&
@@ -1321,6 +1341,8 @@ export function Tools() {
 }
 
 export function NotificationsPage() {
+  const [visibleNotifications, setVisibleNotifications] =
+    useState(notifications);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [weekly, setWeekly] = useState(true);
   return (
@@ -1330,7 +1352,7 @@ export function NotificationsPage() {
     >
       <div className="notification-layout">
         <div className="notification-list">
-          {notifications.map(item => (
+          {visibleNotifications.map(item => (
             <div className="notification-card" key={item.id}>
               <span className={`notification-icon ${item.tone}`}>
                 <Bell size={17} />
@@ -1340,7 +1362,15 @@ export function NotificationsPage() {
                 <p>{item.detail}</p>
                 <small>{item.time}</small>
               </div>
-              <button className="icon-button" aria-label="Dismiss notification">
+              <button
+                className="icon-button"
+                aria-label={`Dismiss notification: ${item.title}`}
+                onClick={() =>
+                  setVisibleNotifications(current =>
+                    current.filter(notification => notification.id !== item.id)
+                  )
+                }
+              >
                 <X size={15} />
               </button>
             </div>

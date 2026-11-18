@@ -107,11 +107,9 @@ export const organisationTypeEnum = pgEnum("organisation_type", [
 ]);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Legacy users table (Manus OAuth → Supabase Auth transition)
-// Retained ONLY during the authentication migration window.
-// id stays an auto-increment integer so the existing Manus auth flow
-// (server/_core/sdk.ts buildCronUser uses id: -1) continues to work.
-// Do NOT add new features against this table.
+// Legacy users table retained to represent the existing database object.
+// Supabase Auth is the active identity provider; application authentication
+// must not read from or write to this table. Do not add new features here.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const users = pgTable("users", {

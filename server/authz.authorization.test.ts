@@ -8,7 +8,7 @@
  *
  * Database isolation cases remain skipped until TEST_DATABASE_URL is configured.
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import { adminProcedure, protectedProcedure, router } from "./_core/trpc";
 import { ADMIN_USER, STUDENT_A, STUDENT_B } from "./_tests/helpers/fixtures";
@@ -18,15 +18,6 @@ import { NOT_ADMIN_ERR_MSG } from "@shared/const";
 const probeRouter = router({
   echoMe: protectedProcedure.query(({ ctx }) => ctx.user),
   echoAdmin: adminProcedure.query(() => "admin-ok"),
-});
-
-beforeEach(() => {
-  vi.stubEnv("MANUS_JWT_SECRET", "qa-test-secret-min-32-chars-long-enough-xx");
-  vi.stubEnv("MANUS_PROJECT_ID", "qa-project-id");
-});
-
-afterEach(() => {
-  vi.unstubAllEnvs();
 });
 
 describe("AUTHORIZATION — admin-only procedures", () => {
@@ -88,22 +79,7 @@ describe("AUTHORIZATION — admin-only procedures", () => {
   });
 });
 
-describe("AUTHORIZATION — cross-student isolation (requires disposable PostgreSQL)", () => {
-  it.skip(
-    "student cannot access another student's profile",
-    () => {}
-  );
-
-  it.skip(
-    "student cannot access another student's applications",
-    () => {}
-  );
-
-  it.skip(
-    "student cannot change their own role",
-    () => {}
-  );
-
+describe("AUTHORIZATION — admin invocation", () => {
   it("student cannot invoke admin opportunity procedures", async () => {
     const caller = appRouter.createCaller(makeContext(STUDENT_A));
     await expect(caller.admin.sources.list()).rejects.toMatchObject({

@@ -2,35 +2,43 @@ name: Scheduled Opportunity Expiry
 
 on:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: "0 2 * * *"
   workflow_dispatch:
 
 jobs:
   expiry:
     runs-on: ubuntu-latest
-    # NOTE: No PostgreSQL service container - the job invokes the running
-    # Empower18 server via authenticated HTTP. The server handles expiry against
-    # its configured production database (DATABASE_URL).
+    # Disabled until the deployment endpoint and both GitHub settings are
+    # deliberately configured by the deployment owner.
+    if: ${{ vars.OPPORTUNITY_EXPIRY_ENABLED == 'true' }}
+    concurrency:
+      group: opportunity-expiry
+      cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 10.18.0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 24
-          cache: pnpm
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm check
-      - name: Trigger expiry
+      - name: Validate endpoint configuration
         env:
-          MANUS_API_URL: https://your-production-domain.com
-          MANUS_API_SECRET: ${{ secrets.MANUS_API_SECRET }}
+          OPPORTUNITY_EXPIRY_URL: ${{ vars.OPPORTUNITY_EXPIRY_URL }}
+          OPPORTUNITY_EXPIRY_SECRET: ${{ secrets.OPPORTUNITY_EXPIRY_SECRET }}
         run: |
-          curl -X POST \
-            -H "Authorization: Bearer ${{ secrets.MANUS_API_SECRET }}" \
+          set -euo pipefail
+          if [[ -z "$OPPORTUNITY_EXPIRY_URL" || "$OPPORTUNITY_EXPIRY_URL" != https://* ]]; then
+            echo "OPPORTUNITY_EXPIRY_URL must be a configured HTTPS deployment URL" >&2
+            exit 1
+          fi
+          if [[ -z "$OPPORTUNITY_EXPIRY_SECRET" || ${#OPPORTUNITY_EXPIRY_SECRET} -lt 32 ]]; then
+            echo "OPPORTUNITY_EXPIRY_SECRET must be configured with at least 32 characters" >&2
+            exit 1
+          fi
+      - name: Expire due opportunities
+        env:
+          OPPORTUNITY_EXPIRY_URL: ${{ vars.OPPORTUNITY_EXPIRY_URL }}
+          OPPORTUNITY_EXPIRY_SECRET: ${{ secrets.OPPORTUNITY_EXPIRY_SECRET }}
+        run: |
+          set -euo pipefail
+          response=$(curl --fail-with-body --silent --show-error --max-time 30 \
+            -X POST \
+            -H "Authorization: Bearer ${OPPORTUNITY_EXPIRY_SECRET}" \
             -H "Content-Type: application/json" \
-            -d '{"action":"expire"}' \
-            "${MANUS_API_URL}/api/trpc/admin.opportunities.expireDue"
-      - name: Verify result
-        run: echo 'Expiry workflow completed'
+            "${OPPORTUNITY_EXPIRY_URL%/}/api/maintenance/opportunities/expire")
+          printf '%s\n' "$response"
+          printf '%s' "$response" | jq -e '.expiredCount | numbers and . >= 0' >/dev/null

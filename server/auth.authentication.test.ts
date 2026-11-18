@@ -1,53 +1,46 @@
-/**
- * Independent QA tests — authentication lifecycle.
- *
- * Covers the Phase 2 AUTHENTICATION contract:
- *  - Unauthenticated request rejected
- *  - Invalid token rejected
- *  - Expired token rejected
- *  - Valid authenticated request accepted
- *  - Logout clears the usable session (and, required for security, revokes
- *    the server-side token — currently a known gap, tracked as P1)
- *
- * These tests exercise the REAL middlewares and session helpers. They do not
- * modify production code.
- */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { appRouter } from "./routers";
 import { adminProcedure, protectedProcedure, router } from "./_core/trpc";
-import { sdk } from "./_core/sdk";
 import { createContext } from "./_core/context";
-import { ADMIN_USER, STUDENT_A, makeUser } from "./_tests/helpers/fixtures";
+import { ADMIN_USER, STUDENT_A } from "./_tests/helpers/fixtures";
 import {
   makeContext,
   makeRequest,
   makeResponse,
 } from "./_tests/helpers/context";
-import {
-  COOKIE_NAME,
-  UNAUTHED_ERR_MSG,
-} from "@shared/const";
+import { COOKIE_NAME, UNAUTHED_ERR_MSG } from "@shared/const";
 
-/** Probe router exposes the protected/admin middleware contracts directly. */
+const mocks = vi.hoisted(() => ({
+  verifySupabaseToken: vi.fn(),
+  getUserRoles: vi.fn(),
+  ensureStudentRole: vi.fn(),
+}));
+
+vi.mock("./_core/supabase", () => ({
+  verifySupabaseToken: mocks.verifySupabaseToken,
+}));
+vi.mock("./db/profile", () => ({
+  getUserRoles: mocks.getUserRoles,
+  ensureStudentRole: mocks.ensureStudentRole,
+}));
+
 const probeRouter = router({
   echoMe: protectedProcedure.query(({ ctx }) => ctx.user),
   echoAdmin: adminProcedure.query(() => "admin-ok"),
 });
 
-const TEST_SECRET = "qa-test-secret-min-32-chars-long-enough-xx";
-const TEST_PROJECT = "qa-project-id";
-
 beforeEach(() => {
-  vi.stubEnv("MANUS_JWT_SECRET", TEST_SECRET);
-  vi.stubEnv("MANUS_PROJECT_ID", TEST_PROJECT);
+  mocks.verifySupabaseToken.mockReset().mockResolvedValue(null);
+  mocks.getUserRoles.mockReset().mockResolvedValue([]);
+  mocks.ensureStudentRole.mockReset().mockResolvedValue(true);
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-describe("AUTHENTICATION — unauthenticated requests", () => {
-  it("rejects an unauthenticated request to a protected procedure", async () => {
+describe("Supabase authentication context", () => {
+  it("rejects unauthenticated access to protected procedures", async () => {
     const caller = probeRouter.createCaller(makeContext(null));
     await expect(caller.echoMe()).rejects.toMatchObject({
       name: "TRPCError",
@@ -56,7 +49,7 @@ describe("AUTHENTICATION — unauthenticated requests", () => {
     });
   });
 
-  it("rejects an unauthenticated request to an admin procedure", async () => {
+  it("rejects unauthenticated access to admin procedures", async () => {
     const caller = probeRouter.createCaller(makeContext(null));
     await expect(caller.echoAdmin()).rejects.toMatchObject({
       name: "TRPCError",
@@ -64,102 +57,107 @@ describe("AUTHENTICATION — unauthenticated requests", () => {
     });
   });
 
-  it("createContext yields a null user when no session is present", async () => {
-    const ctx = await createContext({
+  it("leaves public requests unauthenticated when no bearer token is supplied", async () => {
+    const context = await createContext({
       req: makeRequest(),
       res: makeResponse(),
     });
-    expect(ctx.user).toBeNull();
-  });
-});
-
-describe("AUTHENTICATION — token validation", () => {
-  it("rejects an invalid (malformed) token", async () => {
-    expect(await sdk.verifySession("not-a-jwt")).toBeNull();
-    expect(await sdk.verifySession("")).toBeNull();
-    expect(await sdk.verifySession(undefined)).toBeNull();
+    expect(context.user).toBeNull();
+    expect(mocks.verifySupabaseToken).not.toHaveBeenCalled();
   });
 
-  it("rejects a well-formed JWT signed with the wrong secret", async () => {
-    const foreign =
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJvcGVuSWQiOiJhdHRhY2tlciIsImFwcElkIjoicXEifQ.attackerSignature";
-    expect(await sdk.verifySession(foreign)).toBeNull();
-  });
-
-  it("rejects an expired token", async () => {
-    const expired = await sdk.signSession(
-      { openId: "qa-expired", appId: TEST_PROJECT, name: "Expired" },
-      { expiresInMs: -1_000 }
-    );
-    expect(await sdk.verifySession(expired)).toBeNull();
-  });
-
-  it("rejects a token minted for a different project/app id", async () => {
-    vi.stubEnv("MANUS_PROJECT_ID", "other-project");
-    const foreign = await sdk.signSession({
-      openId: "qa-cross-project",
-      appId: "other-project",
-      name: "Cross",
+  it("fails closed when Supabase rejects a bearer token", async () => {
+    const context = await createContext({
+      req: makeRequest({ authorization: "Bearer invalid-token" }),
+      res: makeResponse(),
     });
-    vi.unstubAllEnvs();
-    vi.stubEnv("MANUS_JWT_SECRET", TEST_SECRET);
-    vi.stubEnv("MANUS_PROJECT_ID", TEST_PROJECT);
-    expect(await sdk.verifySession(foreign)).toBeNull();
+    expect(context.user).toBeNull();
+    expect(mocks.verifySupabaseToken).toHaveBeenCalledWith("invalid-token");
+    expect(mocks.getUserRoles).not.toHaveBeenCalled();
   });
 
-  it("accepts a valid authenticated token and resolves the identity", async () => {
-    const token = await sdk.signSession({
-      openId: STUDENT_A.openId,
-      appId: TEST_PROJECT,
-      name: STUDENT_A.name!,
+  it("does not authenticate a legacy Manus session cookie", async () => {
+    const context = await createContext({
+      req: makeRequest({ cookie: `${COOKIE_NAME}=legacy-session-token` }),
+      res: makeResponse(),
     });
-    const session = await sdk.verifySession(token);
-    expect(session).toEqual({
-      openId: STUDENT_A.openId,
-      appId: TEST_PROJECT,
-      name: STUDENT_A.name!,
-    });
+    expect(context.user).toBeNull();
+    expect(mocks.verifySupabaseToken).not.toHaveBeenCalled();
   });
-});
 
-describe("AUTHENTICATION — valid authenticated request accepted", () => {
-  it("auth.me returns the authenticated user from context", async () => {
+  it("builds the request identity from Supabase and database roles", async () => {
+    const id = "00000000-0000-4000-8000-000000000123";
+    mocks.verifySupabaseToken.mockResolvedValue({
+      id,
+      email: "admin@example.com",
+      name: "Admin",
+      rawUserMetaData: { role: "student" },
+    });
+    mocks.getUserRoles.mockResolvedValue(["admin"]);
+
+    const context = await createContext({
+      req: makeRequest({ authorization: "Bearer valid-supabase-token" }),
+      res: makeResponse(),
+    });
+
+    expect(context.user).toEqual({
+      id,
+      email: "admin@example.com",
+      name: "Admin",
+      roles: ["admin"],
+    });
+    expect(mocks.getUserRoles).toHaveBeenCalledWith(id);
+    expect(mocks.ensureStudentRole).not.toHaveBeenCalled();
+  });
+
+  it("provisions only the default student role for a new Supabase user", async () => {
+    const id = "00000000-0000-4000-8000-000000000456";
+    mocks.verifySupabaseToken.mockResolvedValue({
+      id,
+      email: "new.student@example.com",
+      name: "New Student",
+      rawUserMetaData: { role: "admin" },
+    });
+    mocks.getUserRoles.mockResolvedValue([]);
+
+    const context = await createContext({
+      req: makeRequest({ authorization: "Bearer new-user-token" }),
+      res: makeResponse(),
+    });
+
+    expect(mocks.ensureStudentRole).toHaveBeenCalledWith(id);
+    expect(context.user?.roles).toEqual(["student"]);
+  });
+
+  it("fails closed when role lookup fails", async () => {
+    mocks.verifySupabaseToken.mockResolvedValue({
+      id: "00000000-0000-4000-8000-000000000789",
+      email: "student@example.com",
+      name: "Student",
+      rawUserMetaData: null,
+    });
+    mocks.getUserRoles.mockRejectedValue(new Error("database unavailable"));
+
+    const context = await createContext({
+      req: makeRequest({ authorization: "Bearer valid-but-role-query-fails" }),
+      res: makeResponse(),
+    });
+    expect(context.user).toBeNull();
+  });
+
+  it("auth.me returns the authenticated context user", async () => {
     const caller = appRouter.createCaller(makeContext(STUDENT_A));
     const me = await caller.auth.me();
-    expect(me).toMatchObject({ openId: STUDENT_A.openId, id: STUDENT_A.id });
+    expect(me).toMatchObject({ id: STUDENT_A.id, openId: STUDENT_A.openId });
   });
 
-  it("fail-closed: an invalid cookie never authenticates a request", async () => {
-    const ctx = await createContext({
-      req: makeRequest({
-        cookie: `${COOKIE_NAME}=definitely-not-a-valid-token`,
-      }),
-      res: makeResponse(),
-    });
-    expect(ctx.user).toBeNull();
-  });
-
-  it("rejects a Supabase-style JWT presented by the client", async () => {
-    // Supabase Auth is not yet wired into createContext; any foreign JWT must
-    // fail closed rather than authenticate.
-    const ctx = await createContext({
-      req: makeRequest({
-        authorization:
-          "Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzdXBhYmFzZS11c2VyIn0.sig",
-      }),
-      res: makeResponse(),
-    });
-    expect(ctx.user).toBeNull();
-  });
-});
-
-describe("AUTHENTICATION — logout", () => {
-  it("clears the session cookie with security options", async () => {
+  it("logout clears any stale legacy cookie with secure options", async () => {
     const cleared: { name: string; options: Record<string, unknown> }[] = [];
     const caller = appRouter.createCaller(
-      makeContext(STUDENT_A, makeRequest(), makeResponse(cleared))
+      makeContext(ADMIN_USER, makeRequest(), makeResponse(cleared))
     );
     const result = await caller.auth.logout();
+
     expect(result).toEqual({ success: true });
     expect(cleared).toHaveLength(1);
     expect(cleared[0]?.name).toBe(COOKIE_NAME);
@@ -170,28 +168,5 @@ describe("AUTHENTICATION — logout", () => {
       sameSite: "none",
       path: "/",
     });
-  });
-
-  it("does not claim to revoke Supabase access tokens server-side", async () => {
-    const cleared: { name: string; options: Record<string, unknown> }[] = [];
-    const caller = appRouter.createCaller(
-      makeContext(STUDENT_A, makeRequest(), makeResponse(cleared))
-    );
-    await expect(caller.auth.logout()).resolves.toEqual({ success: true });
-    expect(cleared).toHaveLength(1);
-  });
-});
-
-describe("AUTHENTICATION — fixture sanity", () => {
-  it("student fixtures are non-admin", () => {
-    const student = makeUser({ role: "user" });
-    expect(student.role).toBe("user");
-    expect(student.role).not.toBe("admin");
-  });
-
-  it("admin fixture is distinct from students", () => {
-    expect(ADMIN_USER.role).toBe("admin");
-    expect(STUDENT_A.role).toBe("user");
-    expect(STUDENT_A.openId).not.toBe(ADMIN_USER.openId);
   });
 });

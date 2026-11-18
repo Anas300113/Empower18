@@ -15,6 +15,8 @@ jobs:
     services:
       postgres:
         image: postgres:16-alpine
+        ports:
+          - 5432:5432
         env:
           POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: postgres
@@ -34,9 +36,22 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      - name: Bootstrap disposable RLS test database
+        run: pnpm test:rls:bootstrap
+        env:
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
+      - name: Apply checked-in migrations to disposable test database
+        run: pnpm db:migrate
+        env:
+          MIGRATION_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
+      - name: Grant test role table privileges
+        run: pnpm test:rls:grant
+        env:
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
       - run: pnpm check
       - run: pnpm test
         env:
-          TEST_DATABASE_URL: postgresql://postgres@postgres:5432/postgres
+          DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
+          TEST_DATABASE_URL: postgresql://postgres@127.0.0.1:5432/postgres
       - run: pnpm build
       - run: git diff --check

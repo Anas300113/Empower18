@@ -21,7 +21,7 @@ Empower18 is a mobile-first Warwickshire career-navigation platform for young pe
 
 ## Implementation approach
 
-The MVP uses the initialized React/Express/tRPC/Drizzle project. The frontend contains a complete clickable product shell with realistic but clearly labelled sample opportunity data, client-side state for saved opportunities, onboarding, application statuses, notifications, and preferences. The starter Manus OAuth flow is preserved for real sign-in. Backend/database contracts remain ready for the next increment; current sample content is isolated in `client/src/data.ts` so it can be replaced by tRPC procedures without redesigning the UI.
+The MVP uses the initialized React/Express/tRPC/Drizzle project. Supabase Auth is the sole active identity provider; the retired starter Manus OAuth flow is not part of sign-in or request authentication. The frontend contains a complete clickable product shell with realistic but clearly labelled sample opportunity data, client-side state for saved opportunities, onboarding, application statuses, notifications, and preferences. Current sample content is isolated in `client/src/data.ts` so it can be replaced by tRPC procedures without redesigning the UI.
 
 ## Routes
 

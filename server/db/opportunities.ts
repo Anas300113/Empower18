@@ -604,9 +604,9 @@ export async function transitionOpportunity(
 }
 
 /**
- * Expire every published listing whose application deadline has passed. Rows
- * are fetched in database-side batches so a catalogue larger than one page is
- * fully covered without loading it all into memory.
+ * Expire every published listing whose application deadline or explicit expiry
+ * date has passed. Rows are fetched in database-side batches so a catalogue
+ * larger than one page is fully covered without loading it all into memory.
  */
 export async function expireDueOpportunities(
   actorUserId: string,
@@ -619,23 +619,36 @@ export async function expireDueOpportunities(
   const expired: Opportunity[] = [];
   while (true) {
     const due = await db
-      .select({ id: opportunities.id })
+      .select({
+        id: opportunities.id,
+        applicationDeadlineAt: opportunities.applicationDeadlineAt,
+      })
       .from(opportunities)
       .where(
         and(
           eq(opportunities.status, "published"),
           eq(opportunities.isPublished, true),
-          lt(opportunities.applicationDeadlineAt, now)
+          or(
+            lt(opportunities.applicationDeadlineAt, now),
+            lte(opportunities.expiresAt, now)
+          )
         )
       )
-      .orderBy(asc(opportunities.applicationDeadlineAt), asc(opportunities.id))
+      .orderBy(
+        asc(opportunities.applicationDeadlineAt),
+        asc(opportunities.expiresAt),
+        asc(opportunities.id)
+      )
       .limit(batchSize);
     if (due.length === 0) return expired;
 
     for (const item of due) {
       expired.push(
         await transitionOpportunity(actorUserId, item.id, "expired", {
-          reason: "Application deadline passed",
+          reason:
+            item.applicationDeadlineAt && item.applicationDeadlineAt < now
+              ? "Application deadline passed"
+              : "Listing expiry date passed",
         })
       );
     }
