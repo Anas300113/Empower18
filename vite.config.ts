@@ -174,7 +174,21 @@ function vitePluginPublicPlatformConfig(): Plugin {
 }
 
 const plugins = [
-  nitro({ rootDir: PROJECT_ROOT, serverDir: "./" }),
+  nitro({
+    rootDir: PROJECT_ROOT,
+    serverDir: "./",
+    vercel: {
+      config: {
+        version: 3,
+        routes: [
+          {
+            src: "^/(?!api(?:/|$)|assets(?:/|$)|_vercel(?:/|$)|__manus__(?:/|$)|.*\\.[^/]+$).*",
+            dest: "/index.html",
+          },
+        ],
+      },
+    },
+  }),
   vitePluginPublicPlatformConfig(),
   react(),
   tailwindcss(),

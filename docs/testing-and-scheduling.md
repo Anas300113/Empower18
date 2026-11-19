@@ -39,6 +39,10 @@ by a 32+ character secret and a configured existing administrator audit actor.
 For the Vercel Vite deployment, keep Nitro route source under `routes/api/`
 because a root-level `api/` directory is reserved by Vercel. The plugin publishes
 the endpoint at `/api/maintenance/opportunities/expire` as a Vercel Function.
+Nitro's Vercel output also rewrites frontend page paths to the SPA entry while
+excluding `/api/`, static assets, and file paths. Vercel routes `/api/health`,
+`/api/platform/config.js`, and the existing `/api/trpc` router through Nitro;
+the tRPC adapter retains the shared Supabase bearer-token and role checks.
 Production must also have `DATABASE_URL` set to the application's Supabase
 PostgreSQL session pooler connection string; do not assume a Vercel Postgres
 integration URL points to the application's Supabase schema. Vercel serverless
