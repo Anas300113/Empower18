@@ -3,7 +3,7 @@
     "client/src/**/*",
     "shared/**/*",
     "server/**/*",
-    "api/**/*",
+    "routes/**/*",
     "**/*.test.ts"
   ],
   "exclude": ["node_modules", "build", "dist"],

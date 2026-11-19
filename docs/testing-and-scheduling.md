@@ -36,12 +36,14 @@ when either its application deadline or explicit listing expiry time has
 passed. The external scheduler uses a server-only maintenance endpoint protected
 by a 32+ character secret and a configured existing administrator audit actor.
 
-For the Vercel Vite deployment, the Nitro Vite plugin publishes the API route at
-`/api/maintenance/opportunities/expire` as a Vercel Function. Production must
-also have `DATABASE_URL` set to the application's Supabase PostgreSQL session
-pooler connection string; do not assume a Vercel Postgres integration URL points
-to the application's Supabase schema. Vercel serverless database pools default
-to one connection unless `DATABASE_POOL_MAX` is explicitly configured.
+For the Vercel Vite deployment, keep Nitro route source under `routes/api/`
+because a root-level `api/` directory is reserved by Vercel. The plugin publishes
+the endpoint at `/api/maintenance/opportunities/expire` as a Vercel Function.
+Production must also have `DATABASE_URL` set to the application's Supabase
+PostgreSQL session pooler connection string; do not assume a Vercel Postgres
+integration URL points to the application's Supabase schema. Vercel serverless
+database pools default to one connection unless `DATABASE_POOL_MAX` is explicitly
+configured.
 
 Automatic expiry remains disabled until the deployment owner sets the server
 variables `OPPORTUNITY_EXPIRY_SECRET` and `OPPORTUNITY_EXPIRY_ACTOR_USER_ID`,

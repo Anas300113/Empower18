@@ -11,7 +11,7 @@ vi.mock("../db/opportunities", () => ({
   expireDueOpportunities: mocks.expireDueOpportunities,
 }));
 
-import handler from "../../api/maintenance/opportunities/expire";
+import handler from "../../routes/api/maintenance/opportunities/expire";
 
 const SECRET = "test-maintenance-secret-that-is-at-least-32-chars";
 const ACTOR_ID = "00000000-1111-2222-3333-000000000999";

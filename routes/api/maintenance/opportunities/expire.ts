@@ -5,7 +5,7 @@ import {
   setHeader,
   setResponseStatus,
 } from "h3";
-import { handleOpportunityExpiry } from "../../../server/_core/maintenance";
+import { handleOpportunityExpiry } from "../../../../server/_core/maintenance";
 
 export default defineHandler(async event => {
   setHeader(event, "Cache-Control", "no-store");
