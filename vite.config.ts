@@ -173,6 +173,12 @@ function vitePluginPublicPlatformConfig(): Plugin {
   };
 }
 
+const spaFallbackRoute = {
+  src: "^/(?!api(?:/|$)|assets(?:/|$)|_vercel(?:/|$)|__manus__(?:/|$)|.*\\.[^/]+$).*$",
+  check: true,
+  dest: "/index.html",
+} as const;
+
 const plugins = [
   nitro({
     rootDir: PROJECT_ROOT,
@@ -180,12 +186,7 @@ const plugins = [
     vercel: {
       config: {
         version: 3,
-        routes: [
-          {
-            src: "^/(?!api(?:/|$)|assets(?:/|$)|_vercel(?:/|$)|__manus__(?:/|$)|.*\\.[^/]+$).*",
-            dest: "/index.html",
-          },
-        ],
+        routes: [spaFallbackRoute],
       },
     },
   }),
