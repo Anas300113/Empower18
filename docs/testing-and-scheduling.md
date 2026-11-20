@@ -36,13 +36,19 @@ when either its application deadline or explicit listing expiry time has
 passed. The external scheduler uses a server-only maintenance endpoint protected
 by a 32+ character secret and a configured existing administrator audit actor.
 
-For the Vercel Vite deployment, keep Nitro route source under `routes/api/`
-because a root-level `api/` directory is reserved by Vercel. The plugin publishes
-the endpoint at `/api/maintenance/opportunities/expire` as a Vercel Function.
-Nitro's Vercel output also rewrites frontend page paths to the SPA entry while
-excluding `/api/`, static assets, and file paths. Vercel routes `/api/health`,
-`/api/platform/config.js`, and the existing `/api/trpc` router through Nitro;
-the tRPC adapter retains the shared Supabase bearer-token and role checks.
+This repository's Vite build writes browser files to `dist/public`, while Vercel
+serves only its configured output directory. `vercel.json` therefore sets
+`outputDirectory` to `dist/public`; keep it aligned with `build.outDir` in
+`vite.config.ts`. The Nitro Vercel build should also include
+`.vercel/output/static/index.html` and its hashed assets. Keep Nitro route source
+under `routes/api/` because a root-level `api/` directory is reserved by Vercel.
+The plugin publishes `/api/maintenance/opportunities/expire` as a Vercel
+Function and rewrites frontend page paths to `/index.html` while excluding API,
+asset, and file paths. Vercel routes `/api/health`, `/api/platform/config.js`,
+and `/api/trpc` through Nitro; the tRPC adapter retains the shared Supabase
+bearer-token and role checks. After each routing change, verify `/`, `/login`,
+the hashed JavaScript asset referenced by `index.html`, and `/api/health` on the
+production domain.
 Production must also have `DATABASE_URL` set to the application's Supabase
 PostgreSQL session pooler connection string; do not assume a Vercel Postgres
 integration URL points to the application's Supabase schema. Vercel serverless
