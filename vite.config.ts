@@ -199,6 +199,15 @@ const plugins = [
 
 export default defineConfig({
   plugins,
+  environments: {
+    client: {
+      build: {
+        rollupOptions: {
+          input: path.resolve(PROJECT_ROOT, "client", "index.html"),
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       "@": path.resolve(import.meta.dirname, "client", "src"),
