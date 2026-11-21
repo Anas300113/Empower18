@@ -199,7 +199,27 @@ export async function listPublishedOpportunities(
         eq(opportunitySources.id, opportunities.sourceId)
       )
       .where(where),
-  ]);
+  ]).catch(error => {
+    const outer = error as { name?: unknown; cause?: unknown } | null;
+    const cause = outer?.cause as
+      | { name?: unknown; code?: unknown; message?: unknown }
+      | undefined;
+    const message =
+      typeof cause?.message === "string"
+        ? cause.message
+            .replace(/postgres(?:ql)?:\/\/[^\s"'<>]+/gi, "[redacted database URL]")
+            .replace(/(password|secret|token|key)([=:])\s*[^\s,;]+/gi, "$1$2[redacted]")
+            .replace(/[\r\n\t]+/g, " ")
+            .slice(0, 240)
+        : undefined;
+    console.error("[Database] opportunities.list query failed", {
+      errorName: typeof outer?.name === "string" ? outer.name : "Error",
+      causeName: typeof cause?.name === "string" ? cause.name : undefined,
+      code: typeof cause?.code === "string" ? cause.code : undefined,
+      message,
+    });
+    throw error;
+  });
 
   return {
     items: rows.map(mapOpportunity),
