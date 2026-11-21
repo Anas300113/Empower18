@@ -23,7 +23,7 @@ const ashbyJobSchema = z.object({
   workplaceType: z.string().optional(),
   descriptionHtml: z.string().optional(),
   descriptionPlain: z.string().optional(),
-  publishedAt: z.string().datetime().optional(),
+  publishedAt: z.string().datetime({ offset: true }).optional(),
   employmentType: z.string().optional(),
   jobUrl: z.string().url(),
   applyUrl: z.string().url().optional(),
@@ -170,8 +170,11 @@ export class AshbyConnector implements OpportunityConnector {
           route: null,
           location: job.location ?? null,
           district: null,
-          deliveryMethod: job.workplaceType ?? null,
-          isRemoteEligible: job.isRemote ?? false,
+          deliveryMethod:
+            job.workplaceType ?? (job.isRemote ? "remote" : "onsite"),
+          isRemoteEligible:
+            job.isRemote === true &&
+            !(job.workplaceType ?? "").toLowerCase().includes("hybrid"),
           minAge: null,
           maxAge: null,
           educationRequirements: null,

@@ -1,6 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { adminProcedure, router } from "../_core/trpc";
+import { syncActiveOpportunitySources } from "../_core/connectors/ingestion";
 import {
   createDraft,
   createOrganisation,
@@ -101,6 +102,18 @@ const sourceChanges = z.object({
   type: sourceType,
   officialUrl: z.string().url().max(512).nullable().optional(),
   apiEndpoint: z.string().url().max(512).nullable().optional(),
+  connectorId: z
+    .enum(["greenhouse", "ashby", "lever", "govuk"])
+    .nullable()
+    .optional(),
+  connectorConfig: z
+    .object({
+      boardToken: z.string().trim().min(1).max(255).optional(),
+      boardName: z.string().trim().min(1).max(255).optional(),
+      company: z.string().trim().min(1).max(255).optional(),
+    })
+    .nullable()
+    .optional(),
   authRequired: z.boolean().optional(),
   permittedUse: z.string().trim().max(5000).nullable().optional(),
   termsOfServiceUrl: z.string().url().max(512).nullable().optional(),
@@ -158,6 +171,8 @@ function assertPublishable(opportunity: any) {
     failures.push("official source and canonical URL");
   if (!opportunity.sourceActive) failures.push("active source record");
   if (!opportunity.verificationEvidence) failures.push("verification evidence");
+  if (opportunity.minAge == null || opportunity.maxAge == null)
+    failures.push("explicit age eligibility");
   if (!opportunity.applicationDeadlineAt && !opportunity.expiresAt)
     failures.push("deadline or rolling expiry");
   if (!opportunity.nextReviewAt) failures.push("next review date");
@@ -218,10 +233,17 @@ export const adminRouter = router({
       .input(z.object({ id: z.string().uuid() }))
       .mutation(async ({ ctx, input }) => {
         try {
-          return await transitionOpportunity(ctx.user.id, input.id, "published");
+          return await transitionOpportunity(
+            ctx.user.id,
+            input.id,
+            "published"
+          );
         } catch (error) {
           if (error instanceof PublicationValidationError) {
-            throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: error.message,
+            });
           }
           throw error;
         }
@@ -268,6 +290,17 @@ export const adminRouter = router({
   }),
   sources: router({
     list: adminProcedure.query(() => listSources()),
+    sync: adminProcedure
+      .input(
+        z
+          .object({
+            sourceId: z.string().uuid().optional(),
+            maxPages: z.number().int().min(1).max(1000).default(100),
+            pageSize: z.number().int().min(1).max(100).default(50),
+          })
+          .optional()
+      )
+      .mutation(({ input }) => syncActiveOpportunitySources(input ?? {})),
     create: adminProcedure
       .input(sourceFields)
       .mutation(({ ctx, input }) => createSource(ctx.user.id, input as any)),

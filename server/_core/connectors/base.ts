@@ -57,6 +57,8 @@ export interface CanonicalOpportunity {
   firstSeenAt?: Date | null;
   /** When this record was most recently observed by our pipeline */
   lastSeenAt?: Date | null;
+  /** True when an importer could not safely classify the opportunity. */
+  classificationNeedsReview?: boolean;
 }
 
 /** Result of a single connector sync run */

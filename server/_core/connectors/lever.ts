@@ -29,6 +29,7 @@ const leverPostingSchema = z.object({
     })
     .nullable(),
   location: z.string().nullable(),
+  hostedUrl: z.string().url().nullable().optional(),
   applyUrl: z.string().url().nullable(),
   updatedAt: z.number().nullable(),
   createdAt: z.number().nullable(),
@@ -161,7 +162,7 @@ export class LeverConnector implements OpportunityConnector {
 
       return {
         sourceRecordId: posting.id,
-        canonicalUrl: posting.applyUrl ?? "",
+        canonicalUrl: posting.hostedUrl ?? posting.applyUrl ?? "",
         externalApplicationUrl: posting.applyUrl ?? undefined,
         title: posting.title,
         description,

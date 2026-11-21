@@ -64,6 +64,13 @@
       "when": 1794955441130,
       "tag": "0008_revoke_anon_role_helper",
       "breakpoints": false
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795298122704,
+      "tag": "0009_wise_wendell_vaughn",
+      "breakpoints": true
     }
   ]
 }

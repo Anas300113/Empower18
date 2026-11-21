@@ -54,6 +54,46 @@ function toOpportunityValues(
   };
 }
 
+function materiallyChanged(
+  existing: Record<string, unknown>,
+  values: ReturnType<typeof toOpportunityValues>
+) {
+  const fields = [
+    "title",
+    "description",
+    "summary",
+    "type",
+    "category",
+    "route",
+    "location",
+    "district",
+    "deliveryMethod",
+    "isRemoteEligible",
+    "minAge",
+    "maxAge",
+    "educationRequirements",
+    "qualificationRequirements",
+    "requiredSkills",
+    "salaryMin",
+    "salaryMax",
+    "compensationText",
+    "applicationOpensAt",
+    "applicationDeadlineAt",
+    "startDateAt",
+    "expiresAt",
+    "externalApplicationUrl",
+    "applicationInstructions",
+    "canonicalUrl",
+  ] as const;
+  return fields.some(field => {
+    const before = existing[field];
+    const after = values[field];
+    if (before instanceof Date && after instanceof Date)
+      return before.getTime() !== after.getTime();
+    return JSON.stringify(before) !== JSON.stringify(after);
+  });
+}
+
 /**
  * Synchronise one configured source. Imported records are always unpublished
  * drafts; a successful full traversal is required before missing records are
@@ -80,7 +120,10 @@ export async function syncOpportunitySource(
 
   const connector = createConnector(
     connectorId,
-    resolveConnectorConfig(connectorId)
+    resolveConnectorConfig(
+      connectorId,
+      (source.connectorConfig ?? {}) as Record<string, string>
+    )
   );
   if (!connector) {
     throw new Error(`No connector registered for source ${source.id}`);
@@ -111,6 +154,16 @@ export async function syncOpportunitySource(
           }
           seenRecordIds.add(item.sourceRecordId);
           const values = toOpportunityValues(source.id, item, new Date());
+          const [existing] = await tx
+            .select()
+            .from(opportunities)
+            .where(
+              and(
+                eq(opportunities.sourceId, source.id),
+                eq(opportunities.sourceRecordId, item.sourceRecordId)
+              )
+            )
+            .limit(1);
           const inserted = await tx
             .insert(opportunities)
             .values(values)
@@ -151,6 +204,16 @@ export async function syncOpportunitySource(
               applicationInstructions: values.applicationInstructions,
               canonicalUrl: values.canonicalUrl,
               updatedAt: values.updatedAt,
+              ...(existing && materiallyChanged(existing, values)
+                ? {
+                    status: "pending_review" as const,
+                    isPublished: false,
+                    verifiedBy: null,
+                    verifiedAt: null,
+                    verificationEvidence: null,
+                    nextReviewAt: null,
+                  }
+                : {}),
             })
             .where(
               and(
@@ -235,4 +298,39 @@ export async function syncOpportunitySource(
       warnings,
     };
   }
+}
+
+export async function syncActiveOpportunitySources(options?: {
+  sourceId?: string;
+  maxPages?: number;
+  pageSize?: number;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const sources = await db
+    .select()
+    .from(opportunitySources)
+    .where(eq(opportunitySources.isActive, true));
+  const selected = options?.sourceId
+    ? sources.filter(source => source.id === options.sourceId)
+    : sources;
+  if (options?.sourceId && selected.length === 0)
+    throw new Error("Active opportunity source not found");
+
+  const results = [];
+  for (const source of selected) {
+    if (!source.connectorId) {
+      results.push({
+        sourceId: source.id,
+        sourceName: source.name,
+        status: "failed" as const,
+        error: "Source has no connectorId configured",
+      });
+      continue;
+    }
+    results.push(
+      await syncOpportunitySource(source, source.connectorId, options)
+    );
+  }
+  return results;
 }

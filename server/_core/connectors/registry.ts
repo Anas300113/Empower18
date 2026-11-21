@@ -86,19 +86,25 @@ export function createConnector(
 }
 
 /** Resolve public identifiers and server-only credentials from environment variables. */
-export function resolveConnectorConfig(connectorId: string): ConnectorConfig {
-  switch (connectorId) {
-    case "greenhouse":
-      return { boardToken: process.env.GREENHOUSE_BOARD_TOKEN };
-    case "ashby":
-      return { boardName: process.env.ASHBY_BOARD_NAME };
-    case "lever":
-      return { company: process.env.LEVER_COMPANY };
-    case "govuk":
-      return { apiKey: process.env.GOVUK_API_KEY };
-    default:
-      return {};
-  }
+export function resolveConnectorConfig(
+  connectorId: string,
+  overrides: ConnectorConfig = {}
+): ConnectorConfig {
+  const defaults: ConnectorConfig = (() => {
+    switch (connectorId) {
+      case "greenhouse":
+        return { boardToken: process.env.GREENHOUSE_BOARD_TOKEN };
+      case "ashby":
+        return { boardName: process.env.ASHBY_BOARD_NAME };
+      case "lever":
+        return { company: process.env.LEVER_COMPANY };
+      case "govuk":
+        return { apiKey: process.env.GOVUK_API_KEY };
+      default:
+        return {};
+    }
+  })();
+  return { ...defaults, ...overrides };
 }
 
 /** Backwards-compatible resolver for callers that only need a secret credential. */

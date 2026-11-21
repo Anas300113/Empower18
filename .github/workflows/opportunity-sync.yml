@@ -1,0 +1,27 @@
+name: Opportunity sync
+
+on:
+  schedule:
+    - cron: "0 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger production opportunity sync
+        env:
+          SYNC_URL: ${{ secrets.OPPORTUNITY_SYNC_URL }}
+          SYNC_SECRET: ${{ secrets.OPPORTUNITY_SYNC_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$SYNC_URL"
+          test -n "$SYNC_SECRET"
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --header "Authorization: Bearer $SYNC_SECRET" \
+            --header "Content-Type: application/json" \
+            "$SYNC_URL/api/maintenance/opportunities/sync"

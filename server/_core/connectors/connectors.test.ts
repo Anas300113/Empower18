@@ -26,6 +26,9 @@ describe("opportunity connector API contracts", () => {
               title: "Listed apprentice",
               jobUrl: "https://jobs.example/listed",
               isListed: true,
+              publishedAt: "2021-04-30T16:21:55.393+00:00",
+              isRemote: true,
+              workplaceType: "Hybrid",
               descriptionPlain: "A listed role",
             },
             {
@@ -45,6 +48,8 @@ describe("opportunity connector API contracts", () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.items[0].canonicalUrl).toBe("https://jobs.example/listed");
+    expect(result.items[0].isRemoteEligible).toBe(false);
+    expect(result.items[0].deliveryMethod).toBe("Hybrid");
     expect(request.mock.calls[0][0]).toBe(
       "https://api.ashbyhq.com/posting-api/job-board/example?includeCompensation=false"
     );
@@ -90,10 +95,10 @@ describe("opportunity connector API contracts", () => {
     const request = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          adverts: [],
-          totalCount: 0,
-          pageNumber: 1,
-          pageSize: 50,
+          vacancies: [],
+          total: 0,
+          totalFiltered: 0,
+          totalPages: 0,
         })
       )
     );
@@ -101,6 +106,7 @@ describe("opportunity connector API contracts", () => {
 
     await new GovUkConnector({ apiKey: "test-key" }).fetchOpportunities();
 
+    expect(String(request.mock.calls[0][0])).toContain("/vacancies/vacancy");
     expect(request.mock.calls[0][1].headers).toMatchObject({
       "Ocp-Apim-Subscription-Key": "test-key",
       "X-Version": "2",

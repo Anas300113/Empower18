@@ -214,8 +214,14 @@ export async function listPublishedOpportunities(
     const message =
       typeof cause?.message === "string"
         ? cause.message
-            .replace(/postgres(?:ql)?:\/\/[^\s"'<>]+/gi, "[redacted database URL]")
-            .replace(/(password|secret|token|key)([=:])\s*[^\s,;]+/gi, "$1$2[redacted]")
+            .replace(
+              /postgres(?:ql)?:\/\/[^\s"'<>]+/gi,
+              "[redacted database URL]"
+            )
+            .replace(
+              /(password|secret|token|key)([=:])\s*[^\s,;]+/gi,
+              "$1$2[redacted]"
+            )
             .replace(/[\r\n\t]+/g, " ")
             .slice(0, 240)
         : undefined;
@@ -601,7 +607,9 @@ export async function transitionOpportunity(
       );
     if (to === "published") {
       if (!before.sourceId) {
-        throw new PublicationValidationError("Cannot publish without an active source record");
+        throw new PublicationValidationError(
+          "Cannot publish without an active source record"
+        );
       }
       const [source] = await tx
         .select()
@@ -609,10 +617,21 @@ export async function transitionOpportunity(
         .where(eq(opportunitySources.id, before.sourceId))
         .for("update");
       if (!source?.isActive || source.reliabilityStatus === "unhealthy") {
-        throw new PublicationValidationError("Cannot publish unless the source is active and healthy");
+        throw new PublicationValidationError(
+          "Cannot publish unless the source is active and healthy"
+        );
       }
-      if (!before.canonicalUrl || !before.verificationEvidence || !before.nextReviewAt || (!before.applicationDeadlineAt && !before.expiresAt)) {
-        throw new PublicationValidationError("Cannot publish without required verification, review and expiry information");
+      if (
+        !before.canonicalUrl ||
+        !before.verificationEvidence ||
+        !before.nextReviewAt ||
+        before.minAge == null ||
+        before.maxAge == null ||
+        (!before.applicationDeadlineAt && !before.expiresAt)
+      ) {
+        throw new PublicationValidationError(
+          "Cannot publish without required verification, review and expiry information"
+        );
       }
     }
     const [updated] = await tx
@@ -699,6 +718,17 @@ export async function listSources() {
     .select()
     .from(opportunitySources)
     .orderBy(asc(opportunitySources.name));
+}
+
+export async function getSource(id: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not available");
+  const [source] = await db
+    .select()
+    .from(opportunitySources)
+    .where(eq(opportunitySources.id, id))
+    .limit(1);
+  return source ?? null;
 }
 export async function createSource(
   actorUserId: string,

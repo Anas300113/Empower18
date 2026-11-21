@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { getUserRoles } from "../db/profile";
 import { expireDueOpportunities } from "../db/opportunities";
+import { syncActiveOpportunitySources } from "./connectors/ingestion";
 
 type MaintenanceRequest = { header(name: string): string | undefined };
 type MaintenanceResponse = {
@@ -19,7 +20,10 @@ type MaintenanceRouteRegistrar = {
 
 export type MaintenanceResult = {
   status: number;
-  body: { error: string } | { expiredCount: number };
+  body:
+    | { error: string }
+    | { expiredCount: number }
+    | { syncResults: unknown[] };
 };
 
 function matchesSecret(candidate: string, expected: string): boolean {
@@ -86,4 +90,33 @@ export function registerMaintenanceRoutes(
       response.status(result.status).json(result.body);
     }
   );
+  app.post("/api/maintenance/opportunities/sync", async (request, response) => {
+    const result = await handleOpportunitySync(request.header("authorization"));
+    response.status(result.status).json(result.body);
+  });
+}
+
+export async function handleOpportunitySync(
+  authorization: string | undefined
+): Promise<MaintenanceResult> {
+  const expectedSecret = process.env.OPPORTUNITY_SYNC_SECRET;
+  if (!expectedSecret || expectedSecret.length < 32)
+    return { status: 503, body: { error: "Sync endpoint is not configured" } };
+  const match = /^Bearer\s+(.+)$/i.exec(authorization ?? "");
+  if (!match || !matchesSecret(match[1], expectedSecret))
+    return { status: 401, body: { error: "Unauthorized" } };
+  if (!process.env.DATABASE_URL)
+    return {
+      status: 503,
+      body: { error: "Maintenance database is not configured" },
+    };
+  try {
+    const syncResults = await syncActiveOpportunitySources({
+      maxPages: Number(process.env.OPPORTUNITY_SYNC_MAX_PAGES ?? 100),
+    });
+    return { status: 200, body: { syncResults } };
+  } catch (error) {
+    console.error("Opportunity ingestion maintenance failed", error);
+    return { status: 500, body: { error: "Opportunity sync failed" } };
+  }
 }

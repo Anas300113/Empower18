@@ -6,11 +6,15 @@ import type { AddressInfo } from "node:net";
 const mocks = vi.hoisted(() => ({
   getUserRoles: vi.fn(),
   expireDueOpportunities: vi.fn(),
+  syncActiveOpportunitySources: vi.fn(),
 }));
 
 vi.mock("../db/profile", () => ({ getUserRoles: mocks.getUserRoles }));
 vi.mock("../db/opportunities", () => ({
   expireDueOpportunities: mocks.expireDueOpportunities,
+}));
+vi.mock("./connectors/ingestion", () => ({
+  syncActiveOpportunitySources: mocks.syncActiveOpportunitySources,
 }));
 
 import { registerMaintenanceRoutes } from "./maintenance";
@@ -43,6 +47,7 @@ beforeEach(() => {
   vi.stubEnv("DATABASE_URL", "postgresql://test-only.invalid/empower18");
   mocks.getUserRoles.mockReset();
   mocks.expireDueOpportunities.mockReset();
+  mocks.syncActiveOpportunitySources.mockReset();
 });
 
 afterEach(() => {
@@ -141,6 +146,26 @@ describe("Opportunity expiry maintenance endpoint", () => {
       expect(response.status).toBe(200);
       expect(await response.json()).toEqual({ expiredCount: 1 });
       expect(mocks.expireDueOpportunities).toHaveBeenCalledWith(ACTOR_ID);
+    } finally {
+      await stopTestServer(server);
+    }
+  });
+});
+
+describe("Opportunity sync maintenance endpoint", () => {
+  it("rejects an invalid bearer secret before starting ingestion", async () => {
+    vi.stubEnv("OPPORTUNITY_SYNC_SECRET", SECRET);
+    const { server, url } = await startTestServer();
+    try {
+      const response = await fetch(
+        `${url}/api/maintenance/opportunities/sync`,
+        {
+          method: "POST",
+          headers: { Authorization: "Bearer wrong-secret" },
+        }
+      );
+      expect(response.status).toBe(401);
+      expect(mocks.syncActiveOpportunitySources).not.toHaveBeenCalled();
     } finally {
       await stopTestServer(server);
     }

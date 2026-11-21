@@ -1,10 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // GOV.UK Find an Apprenticeship Display Advert Connector (API v2)
-//
-// Source: GET https://api.apprenticeships.education.gov.uk/vacancies
-// Documentation: https://developer.apprenticeships.education.gov.uk/Documentation/display-advert-api-v2
-// Authentication: Ocp-Apim-Subscription-Key plus X-Version: 2
-// Rate limit: ~30 requests/minute
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type {
@@ -15,52 +10,39 @@ import type {
 } from "./base";
 import { z } from "zod";
 
-const govukAdvertSchema = z.object({
-  id: z.string(),
+const dateValue = z.string().datetime({ offset: true }).nullable().optional();
+const govukAddressSchema = z.object({
+  addressLine1: z.string().nullable().optional(),
+  addressLine2: z.string().nullable().optional(),
+  town: z.string().nullable().optional(),
+  county: z.string().nullable().optional(),
+  postcode: z.string().nullable().optional(),
+});
+const govukWageSchema = z.object({
+  amount: z.number().nullable().optional(),
+  amountText: z.string().nullable().optional(),
+  unit: z.string().nullable().optional(),
+  type: z.string().nullable().optional(),
+});
+const govukVacancySchema = z.object({
+  vacancyReference: z.string(),
   title: z.string(),
-  description: z.string().nullable(),
-  employerName: z.string().nullable(),
-  employerWebsite: z.string().url().nullable(),
-  location: z.string().nullable(),
-  town: z.string().nullable(),
-  county: z.string().nullable(),
-  postcode: z.string().nullable(),
-  wage: z.string().nullable(),
-  wageType: z.string().nullable(),
-  hoursPerWeek: z.number().nullable(),
-  closingDate: z.string().datetime().nullable(),
-  startDate: z.string().datetime().nullable(),
-  level: z.string().nullable(),
-  duration: z.string().nullable(),
-  weeklyHours: z.number().nullable(),
-  potentialEmployer: z.string().nullable(),
-  referenceNumber: z.string().nullable(),
+  description: z.string().nullable().optional(),
+  employerName: z.string().nullable().optional(),
+  employerWebsiteUrl: z.string().url().nullable().optional(),
+  addresses: z.array(govukAddressSchema).optional(),
+  wage: govukWageSchema.nullable().optional(),
+  closingDate: dateValue,
+  startDate: dateValue,
+  level: z.string().nullable().optional(),
+  duration: z.string().nullable().optional(),
 });
-
 const govukResponseSchema = z.object({
-  adverts: z.array(govukAdvertSchema),
-  totalCount: z.number().nullable(),
-  pageNumber: z.number().nullable(),
-  pageSize: z.number().nullable(),
+  vacancies: z.array(govukVacancySchema),
+  total: z.number().optional(),
+  totalFiltered: z.number().optional(),
+  totalPages: z.number().optional(),
 });
-
-function mapGovukLevel(level?: string | null): string {
-  if (!level) return "apprenticeship";
-  const l = level.toLowerCase();
-  if (l.includes("degree") || l.includes("level 6") || l.includes("level 7")) {
-    return "apprenticeship";
-  }
-  if (l.includes("advanced") || l.includes("level 3")) {
-    return "apprenticeship";
-  }
-  if (l.includes("intermediate") || l.includes("level 2")) {
-    return "apprenticeship";
-  }
-  if (l.includes("higher") || l.includes("level 4") || l.includes("level 5")) {
-    return "apprenticeship";
-  }
-  return "apprenticeship";
-}
 
 function stripHtml(html: string): string {
   return html
@@ -85,16 +67,14 @@ export class GovUkConnector implements OpportunityConnector {
     requiresAuth: true,
   };
   readonly rateLimit = { requestsPerMinute: 30 };
-
   private readonly apiKey: string;
 
   constructor(config?: ConnectorConfig) {
     this.apiKey = config?.apiKey ?? process.env.GOVUK_API_KEY ?? "";
-    if (!this.apiKey) {
+    if (!this.apiKey)
       throw new Error(
         "GOV.UK connector requires GOVUK_API_KEY environment variable"
       );
-    }
   }
 
   async healthCheck(): Promise<{ ok: boolean; message?: string }> {
@@ -112,21 +92,17 @@ export class GovUkConnector implements OpportunityConnector {
     }
   }
 
-  async fetchOpportunities(options?: SyncOptions): Promise<{
-    items: CanonicalOpportunity[];
-    nextCursor?: string | null;
-    hasMore: boolean;
-  }> {
-    const page = (options?.cursor ? parseInt(options.cursor, 10) : 1) || 1;
+  async fetchOpportunities(options?: SyncOptions) {
+    const page = Number(options?.cursor ?? "1") || 1;
     const pageSize = options?.pageSize ?? 50;
-
     const url = new URL(
-      "https://api.apprenticeships.education.gov.uk/vacancies"
+      "https://api.apprenticeships.education.gov.uk/vacancies/vacancy"
     );
-    url.searchParams.set("page", String(page));
-    url.searchParams.set("pageSize", String(pageSize));
+    url.searchParams.set("PageNumber", String(page));
+    url.searchParams.set("PageSize", String(pageSize));
+    url.searchParams.set("IncludeDetails", "true");
 
-    const response = await fetch(url.toString(), {
+    const response = await fetch(url, {
       headers: {
         Accept: "application/json",
         "Ocp-Apim-Subscription-Key": this.apiKey,
@@ -135,7 +111,6 @@ export class GovUkConnector implements OpportunityConnector {
       },
       signal: AbortSignal.timeout(30000),
     });
-
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "");
       throw new Error(
@@ -143,68 +118,66 @@ export class GovUkConnector implements OpportunityConnector {
       );
     }
 
-    const rawBody = await response.json();
-    const parsed = govukResponseSchema.safeParse(rawBody);
-    if (!parsed.success) {
+    const parsed = govukResponseSchema.safeParse(await response.json());
+    if (!parsed.success)
       throw new Error(
         `GOV.UK API response validation failed: ${parsed.error.message}`
       );
-    }
 
-    const adverts = parsed.data.adverts;
-    const items: CanonicalOpportunity[] = adverts.map(advert => {
-      const location = advert.location || advert.town || advert.county || null;
-      const organisation = advert.employerName || null;
-
+    const items: CanonicalOpportunity[] = parsed.data.vacancies.map(vacancy => {
+      const address = vacancy.addresses?.[0];
+      const location =
+        [address?.town, address?.county, address?.postcode]
+          .filter(Boolean)
+          .join(", ") || null;
+      const description = stripHtml(vacancy.description ?? "");
+      const wage = vacancy.wage;
+      const compensationText = wage
+        ? [
+            wage.amountText,
+            wage.amount != null ? String(wage.amount) : null,
+            wage.unit,
+          ]
+            .filter(Boolean)
+            .join(" ") || null
+        : null;
       return {
-        sourceRecordId: advert.id,
-        canonicalUrl: `https://www.findapprenticeship.service.gov.uk/apprenticeship/${advert.id}`,
-        externalApplicationUrl: undefined,
-        title: advert.title,
-        description: stripHtml(advert.description ?? ""),
-        summary:
-          advert.description != null
-            ? stripHtml(advert.description).slice(0, 500) || null
-            : null,
-        type: mapGovukLevel(advert.level),
+        sourceRecordId: vacancy.vacancyReference,
+        canonicalUrl: `https://www.findapprenticeship.service.gov.uk/apprenticeship/${vacancy.vacancyReference}`,
+        title: vacancy.title,
+        description,
+        summary: description.slice(0, 500) || null,
+        type: "apprenticeship",
         category: null,
-        route: null,
+        route: "Apprenticeship",
         location,
-        district: advert.county ?? null,
+        district: address?.county ?? null,
         deliveryMethod: null,
         isRemoteEligible: false,
         minAge: null,
         maxAge: null,
         educationRequirements: null,
-        qualificationRequirements: null,
+        qualificationRequirements: vacancy.level ?? null,
         requiredSkills: [],
-        salaryMin: null,
+        salaryMin: wage?.amount ?? null,
         salaryMax: null,
-        compensationText: advert.wage ?? null,
+        compensationText,
         applicationOpensAt: null,
-        applicationDeadlineAt: advert.closingDate
-          ? new Date(advert.closingDate)
+        applicationDeadlineAt: vacancy.closingDate
+          ? new Date(vacancy.closingDate)
           : null,
-        startDateAt: advert.startDate ? new Date(advert.startDate) : null,
-        expiresAt: advert.closingDate ? new Date(advert.closingDate) : null,
+        startDateAt: vacancy.startDate ? new Date(vacancy.startDate) : null,
+        expiresAt: vacancy.closingDate ? new Date(vacancy.closingDate) : null,
         applicationInstructions: null,
-        organisationName: organisation,
-        organisationWebsite: advert.employerWebsite ?? null,
+        organisationName: vacancy.employerName ?? null,
+        organisationWebsite: vacancy.employerWebsiteUrl ?? null,
         firstSeenAt: new Date(),
         lastSeenAt: new Date(),
       };
     });
-
-    const pageNumber = parsed.data.pageNumber ?? 1;
-    const pageSizeResult = parsed.data.pageSize ?? pageSize;
-    const totalCount = parsed.data.totalCount ?? 0;
-    const hasMore = page * pageSizeResult < totalCount;
-    const nextCursor = hasMore ? String(page + 1) : null;
-
-    return {
-      items,
-      nextCursor,
-      hasMore,
-    };
+    const totalPages =
+      parsed.data.totalPages ?? (items.length < pageSize ? page : page + 1);
+    const hasMore = page < totalPages;
+    return { items, nextCursor: hasMore ? String(page + 1) : null, hasMore };
   }
 }

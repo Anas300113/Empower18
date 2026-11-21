@@ -261,6 +261,8 @@ export const opportunitySources = pgTable(
     type: sourceTypeEnum("type").notNull(),
     officialUrl: varchar("official_url", { length: 512 }),
     apiEndpoint: varchar("api_endpoint", { length: 512 }),
+    connectorId: varchar("connector_id", { length: 64 }),
+    connectorConfig: jsonb("connector_config"),
     authRequired: boolean("auth_required").notNull().default(false),
     apiKeyReference: varchar("api_key_reference", { length: 128 }),
     permittedUse: text("permitted_use"),
