@@ -97,9 +97,10 @@ export interface RateLimitConfig {
 /** Provider host allow-list – connectors may only call these hosts */
 export const ALLOWED_PROVIDER_HOSTS = [
   "boards.greenhouse.io",
+  "boards-api.greenhouse.io",
   "api.ashbyhq.com",
   "api.lever.co",
-  "findapprenticeshiptraining.sfa.bis.gov.uk",
+  "api.apprenticeships.education.gov.uk",
 ] as const;
 
 export type AllowedProviderHost = (typeof ALLOWED_PROVIDER_HOSTS)[number];
@@ -161,7 +162,15 @@ export interface ConnectorRegistration {
   providerHost: AllowedProviderHost;
   capabilities: ConnectorCapabilities;
   rateLimit: RateLimitConfig;
-  createConnector: (apiKey?: string) => OpportunityConnector;
+  createConnector: (config?: ConnectorConfig) => OpportunityConnector;
+}
+
+/** Public identifiers and server-only credentials are intentionally separate. */
+export interface ConnectorConfig {
+  boardToken?: string;
+  boardName?: string;
+  company?: string;
+  apiKey?: string;
 }
 
 /** Zod schema for validating external API error responses */

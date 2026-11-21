@@ -1,14 +1,15 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // GOV.UK Find an Apprenticeship Display Advert Connector (API v2)
 //
-// Source: GET https://findapprenticeshiptraining.sfa.bis.gov.uk/api/v2/display-adverts
-// Documentation: https://developer-service.herokuapp.com/api-documentation/
-// Authentication: None required (public API)
+// Source: GET https://api.apprenticeships.education.gov.uk/vacancies
+// Documentation: https://developer.apprenticeships.education.gov.uk/Documentation/display-advert-api-v2
+// Authentication: Ocp-Apim-Subscription-Key plus X-Version: 2
 // Rate limit: ~30 requests/minute
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type {
   CanonicalOpportunity,
+  ConnectorConfig,
   OpportunityConnector,
   SyncOptions,
 } from "./base";
@@ -43,9 +44,7 @@ const govukResponseSchema = z.object({
   pageSize: z.number().nullable(),
 });
 
-function mapGovukLevel(
-  level?: string | null
-): string {
+function mapGovukLevel(level?: string | null): string {
   if (!level) return "apprenticeship";
   const l = level.toLowerCase();
   if (l.includes("degree") || l.includes("level 6") || l.includes("level 7")) {
@@ -79,16 +78,23 @@ function stripHtml(html: string): string {
 export class GovUkConnector implements OpportunityConnector {
   readonly id = "govuk";
   readonly providerName = "GOV.UK Find an Apprenticeship";
-  readonly providerHost = "findapprenticeshiptraining.sfa.bis.gov.uk";
+  readonly providerHost = "api.apprenticeships.education.gov.uk";
   readonly capabilities = {
     supportsPagination: true,
     supportsRateLimitHeaders: false,
-    requiresAuth: false,
+    requiresAuth: true,
   };
   readonly rateLimit = { requestsPerMinute: 30 };
 
-  constructor() {
-    // No API key required for GOV.UK public API
+  private readonly apiKey: string;
+
+  constructor(config?: ConnectorConfig) {
+    this.apiKey = config?.apiKey ?? process.env.GOVUK_API_KEY ?? "";
+    if (!this.apiKey) {
+      throw new Error(
+        "GOV.UK connector requires GOVUK_API_KEY environment variable"
+      );
+    }
   }
 
   async healthCheck(): Promise<{ ok: boolean; message?: string }> {
@@ -115,7 +121,7 @@ export class GovUkConnector implements OpportunityConnector {
     const pageSize = options?.pageSize ?? 50;
 
     const url = new URL(
-      "https://findapprenticeshiptraining.sfa.bis.gov.uk/api/v2/display-adverts"
+      "https://api.apprenticeships.education.gov.uk/vacancies"
     );
     url.searchParams.set("page", String(page));
     url.searchParams.set("pageSize", String(pageSize));
@@ -123,6 +129,8 @@ export class GovUkConnector implements OpportunityConnector {
     const response = await fetch(url.toString(), {
       headers: {
         Accept: "application/json",
+        "Ocp-Apim-Subscription-Key": this.apiKey,
+        "X-Version": "2",
         "User-Agent": "Empower18/1.0 (https://empower18.vercel.app)",
       },
       signal: AbortSignal.timeout(30000),
@@ -145,17 +153,12 @@ export class GovUkConnector implements OpportunityConnector {
 
     const adverts = parsed.data.adverts;
     const items: CanonicalOpportunity[] = adverts.map(advert => {
-      const location =
-        advert.location ||
-        advert.town ||
-        advert.county ||
-        null;
-      const organisation =
-        advert.employerName || null;
+      const location = advert.location || advert.town || advert.county || null;
+      const organisation = advert.employerName || null;
 
       return {
         sourceRecordId: advert.id,
-        canonicalUrl: `https://findapprenticeshiptraining.sfa.bis.gov.uk/advert/${advert.id}`,
+        canonicalUrl: `https://www.findapprenticeship.service.gov.uk/apprenticeship/${advert.id}`,
         externalApplicationUrl: undefined,
         title: advert.title,
         description: stripHtml(advert.description ?? ""),
@@ -182,12 +185,8 @@ export class GovUkConnector implements OpportunityConnector {
         applicationDeadlineAt: advert.closingDate
           ? new Date(advert.closingDate)
           : null,
-        startDateAt: advert.startDate
-          ? new Date(advert.startDate)
-          : null,
-        expiresAt: advert.closingDate
-          ? new Date(advert.closingDate)
-          : null,
+        startDateAt: advert.startDate ? new Date(advert.startDate) : null,
+        expiresAt: advert.closingDate ? new Date(advert.closingDate) : null,
         applicationInstructions: null,
         organisationName: organisation,
         organisationWebsite: advert.employerWebsite ?? null,

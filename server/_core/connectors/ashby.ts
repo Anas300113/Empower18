@@ -1,83 +1,73 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // Ashby Public Job Postings Connector
 //
-// Source: POST https://api.ashbyhq.com/job-posting-board
-// Documentation: https://developers.ashbyhq.com/
-// Authentication: API key via "access-token" header
-// Rate limit: ~100 requests/minute
+// Source: GET https://api.ashbyhq.com/posting-api/job-board/{job_board_name}
+// Documentation: https://developers.ashbyhq.com/docs/public-job-posting-api
+// Authentication: None required (public job board API)
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type {
   CanonicalOpportunity,
+  ConnectorConfig,
   OpportunityConnector,
   SyncOptions,
 } from "./base";
 import { z } from "zod";
 
-const ashbyJobPostingSchema = z.object({
-  id: z.string(),
+const ashbyJobSchema = z.object({
   title: z.string(),
-  location: z.string().nullable(),
-  departmentName: z.string().nullable(),
-  employmentType: z.string().nullable(),
-  publishedAt: z.string().datetime().nullable(),
-  updatedAt: z.string().datetime().nullable(),
-  applyUrl: z.string().url().nullable(),
-  description: z.string().nullable(),
-  employmentLevel: z.string().nullable(),
+  location: z.string().optional(),
+  department: z.string().optional(),
+  team: z.string().optional(),
+  isRemote: z.boolean().optional(),
+  workplaceType: z.string().optional(),
+  descriptionHtml: z.string().optional(),
+  descriptionPlain: z.string().optional(),
+  publishedAt: z.string().datetime().optional(),
+  employmentType: z.string().optional(),
+  jobUrl: z.string().url(),
+  applyUrl: z.string().url().optional(),
+  isListed: z.boolean(),
 });
 
 const ashbyResponseSchema = z.object({
-  jobPostings: z.array(ashbyJobPostingSchema),
-  nextCursor: z.string().nullable(),
+  apiVersion: z.string().optional(),
+  jobs: z.array(ashbyJobSchema),
 });
 
-function mapAshbyType(
-  job: z.infer<typeof ashbyJobPostingSchema>
-): string {
+function mapAshbyType(job: z.infer<typeof ashbyJobSchema>): string {
   const titleLower = job.title.toLowerCase();
-  const descLower = (job.description ?? "").toLowerCase();
-  const empType = (job.employmentType ?? "").toLowerCase();
+  const descriptionLower = (
+    job.descriptionPlain ??
+    job.descriptionHtml ??
+    ""
+  ).toLowerCase();
+  const employmentType = (job.employmentType ?? "").toLowerCase();
 
-  if (empType.includes("apprentice") || titleLower.includes("apprentice")) {
+  if (
+    employmentType.includes("apprentice") ||
+    titleLower.includes("apprentice") ||
+    descriptionLower.includes("apprentice")
+  )
     return "apprenticeship";
-  }
-  if (empType.includes("intern") || titleLower.includes("intern")) {
+  if (employmentType.includes("intern") || titleLower.includes("intern"))
     return "internship";
-  }
-  if (empType.includes("trainee") || titleLower.includes("trainee")) {
+  if (employmentType.includes("trainee") || titleLower.includes("trainee"))
     return "traineeship";
-  }
-  if (
-    empType.includes("part-time") ||
-    empType.includes("part time") ||
-    titleLower.includes("part-time") ||
-    titleLower.includes("part time")
-  ) {
+  if (employmentType.includes("part") || titleLower.includes("part-time"))
     return "part_time";
-  }
-  if (
-    empType.includes("full-time") ||
-    empType.includes("full time") ||
-    titleLower.includes("full-time") ||
-    titleLower.includes("full time")
-  ) {
+  if (employmentType.includes("full") || titleLower.includes("full-time"))
     return "full_time";
-  }
   if (
-    empType.includes("volunteer") ||
     titleLower.includes("volunteer") ||
-    descLower.includes("volunteer")
-  ) {
+    descriptionLower.includes("volunteer")
+  )
     return "volunteering";
-  }
   if (
-    empType.includes("work experience") ||
     titleLower.includes("work experience") ||
-    descLower.includes("work experience")
-  ) {
+    descriptionLower.includes("work experience")
+  )
     return "work_experience";
-  }
   return "work_experience";
 }
 
@@ -99,21 +89,19 @@ export class AshbyConnector implements OpportunityConnector {
   readonly providerName = "Ashby Public Job Postings";
   readonly providerHost = "api.ashbyhq.com";
   readonly capabilities = {
-    supportsPagination: true,
+    supportsPagination: false,
     supportsRateLimitHeaders: false,
-    requiresAuth: true,
+    requiresAuth: false,
   };
   readonly rateLimit = { requestsPerMinute: 100 };
 
-  private readonly boardId: string;
-  private readonly apiKey: string | undefined;
+  private readonly boardName: string;
 
-  constructor(apiKey?: string) {
-    this.apiKey = apiKey ?? process.env.ASHBY_API_KEY;
-    this.boardId = apiKey ?? process.env.ASHBY_BOARD_ID ?? "";
-    if (!this.boardId) {
+  constructor(config?: ConnectorConfig) {
+    this.boardName = config?.boardName ?? process.env.ASHBY_BOARD_NAME ?? "";
+    if (!this.boardName) {
       throw new Error(
-        "Ashby connector requires ASHBY_BOARD_ID environment variable"
+        "Ashby connector requires ASHBY_BOARD_NAME environment variable"
       );
     }
   }
@@ -123,7 +111,7 @@ export class AshbyConnector implements OpportunityConnector {
       await this.fetchOpportunities({ sourceId: this.id, pageSize: 1 });
       return {
         ok: true,
-        message: `Connected to Ashby board "${this.boardId}"`,
+        message: `Connected to Ashby board "${this.boardName}"`,
       };
     } catch (error) {
       return {
@@ -133,30 +121,21 @@ export class AshbyConnector implements OpportunityConnector {
     }
   }
 
-  async fetchOpportunities(options?: SyncOptions): Promise<{
+  async fetchOpportunities(_options?: SyncOptions): Promise<{
     items: CanonicalOpportunity[];
     nextCursor?: string | null;
     hasMore: boolean;
   }> {
-    const cursor = options?.cursor ?? null;
-    const pageSize = options?.pageSize ?? 50;
-    const body = {
-      jobPostingBoardId: this.boardId,
-      cursor,
-      includeCompensationBands: false,
-      includeDepartments: true,
-      includeLocations: true,
-      limit: pageSize,
-    };
+    const url = new URL(
+      `https://api.ashbyhq.com/posting-api/job-board/${encodeURIComponent(this.boardName)}`
+    );
+    url.searchParams.set("includeCompensation", "false");
 
-    const response = await fetch("https://api.ashbyhq.com/job-posting-board", {
-      method: "POST",
+    const response = await fetch(url.toString(), {
       headers: {
-        "Content-Type": "application/json",
-        "access-token": this.apiKey ?? "",
+        Accept: "application/json",
         "User-Agent": "Empower18/1.0 (https://empower18.vercel.app)",
       },
-      body: JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
     });
 
@@ -167,53 +146,54 @@ export class AshbyConnector implements OpportunityConnector {
       );
     }
 
-    const rawBody = await response.json();
-    const parsed = ashbyResponseSchema.safeParse(rawBody);
+    const parsed = ashbyResponseSchema.safeParse(await response.json());
     if (!parsed.success) {
       throw new Error(
         `Ashby API response validation failed: ${parsed.error.message}`
       );
     }
 
-    const items: CanonicalOpportunity[] = parsed.data.jobPostings.map(posting => {
-      const description = stripHtml(posting.description ?? "");
-      const organisation = posting.departmentName || posting.location || null;
+    const items: CanonicalOpportunity[] = parsed.data.jobs
+      .filter(job => job.isListed)
+      .map(job => {
+        const description =
+          job.descriptionPlain ?? stripHtml(job.descriptionHtml ?? "");
+        return {
+          sourceRecordId: job.jobUrl,
+          canonicalUrl: job.jobUrl,
+          externalApplicationUrl: job.applyUrl,
+          title: job.title,
+          description,
+          summary: description.slice(0, 500) || null,
+          type: mapAshbyType(job),
+          category: null,
+          route: null,
+          location: job.location ?? null,
+          district: null,
+          deliveryMethod: job.workplaceType ?? null,
+          isRemoteEligible: job.isRemote ?? false,
+          minAge: null,
+          maxAge: null,
+          educationRequirements: null,
+          qualificationRequirements: null,
+          requiredSkills: [],
+          salaryMin: null,
+          salaryMax: null,
+          compensationText: null,
+          applicationOpensAt: job.publishedAt
+            ? new Date(job.publishedAt)
+            : null,
+          applicationDeadlineAt: null,
+          startDateAt: null,
+          expiresAt: null,
+          applicationInstructions: null,
+          organisationName: job.department ?? job.team ?? null,
+          organisationWebsite: null,
+          firstSeenAt: new Date(),
+          lastSeenAt: new Date(),
+        };
+      });
 
-      return {
-        sourceRecordId: posting.id,
-        canonicalUrl: posting.applyUrl ?? "",
-        externalApplicationUrl: posting.applyUrl ?? undefined,
-        title: posting.title,
-        description,
-        summary: description.slice(0, 500) || null,
-        type: mapAshbyType(posting),
-        category: null,
-        route: null,
-        location: posting.location ?? null,
-        district: null,
-        deliveryMethod: null,
-        isRemoteEligible: false,
-        minAge: null,
-        maxAge: null,
-        educationRequirements: null,
-        qualificationRequirements: null,
-        requiredSkills: [],
-        salaryMin: null,
-        salaryMax: null,
-        compensationText: null,
-        applicationOpensAt: posting.publishedAt ? new Date(posting.publishedAt) : null,
-        applicationDeadlineAt: null,
-        startDateAt: null,
-        expiresAt: posting.updatedAt ? new Date(posting.updatedAt) : null,
-        applicationInstructions: null,
-        organisationName: organisation,
-        organisationWebsite: null,
-        firstSeenAt: new Date(),
-        lastSeenAt: new Date(),
-      };
-    });
-
-    const nextCursor = parsed.data.nextCursor;
-    return { items, nextCursor, hasMore: Boolean(nextCursor) };
+    return { items, nextCursor: null, hasMore: false };
   }
 }

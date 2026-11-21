@@ -2,11 +2,12 @@
 // Connector Registry
 //
 // Registers all available opportunity connectors. Connectors are instantiated
-// lazily when needed, with API keys resolved from server-side environment
-// variables only.
+// lazily, with public board identifiers and server-only credentials resolved
+// separately from environment variables.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import type {
+  ConnectorConfig,
   ConnectorRegistration,
   OpportunityConnector,
 } from "./base";
@@ -19,30 +20,27 @@ const registrations: ConnectorRegistration[] = [
   {
     id: "greenhouse",
     providerName: "Greenhouse Job Board",
-    providerHost: "boards.greenhouse.io",
+    providerHost: "boards-api.greenhouse.io",
     capabilities: {
       supportsPagination: true,
       supportsRateLimitHeaders: true,
       requiresAuth: false,
     },
-    rateLimit: {
-      requestsPerMinute: 60,
-    },
-    createConnector: (apiKey?: string) => new GreenhouseConnector(apiKey),
+    rateLimit: { requestsPerMinute: 60 },
+    createConnector: (config?: ConnectorConfig) =>
+      new GreenhouseConnector(config),
   },
   {
     id: "ashby",
     providerName: "Ashby Public Job Postings",
     providerHost: "api.ashbyhq.com",
     capabilities: {
-      supportsPagination: true,
+      supportsPagination: false,
       supportsRateLimitHeaders: false,
-      requiresAuth: true,
+      requiresAuth: false,
     },
-    rateLimit: {
-      requestsPerMinute: 100,
-    },
-    createConnector: (apiKey?: string) => new AshbyConnector(apiKey),
+    rateLimit: { requestsPerMinute: 100 },
+    createConnector: (config?: ConnectorConfig) => new AshbyConnector(config),
   },
   {
     id: "lever",
@@ -53,59 +51,57 @@ const registrations: ConnectorRegistration[] = [
       supportsRateLimitHeaders: false,
       requiresAuth: false,
     },
-    rateLimit: {
-      requestsPerMinute: 100,
-    },
-    createConnector: (apiKey?: string) => new LeverConnector(apiKey),
+    rateLimit: { requestsPerMinute: 100 },
+    createConnector: (config?: ConnectorConfig) => new LeverConnector(config),
   },
   {
     id: "govuk",
     providerName: "GOV.UK Find an Apprenticeship",
-    providerHost: "findapprenticeshiptraining.sfa.bis.gov.uk",
+    providerHost: "api.apprenticeships.education.gov.uk",
     capabilities: {
       supportsPagination: true,
       supportsRateLimitHeaders: false,
-      requiresAuth: false,
+      requiresAuth: true,
     },
-    rateLimit: {
-      requestsPerMinute: 30,
-    },
-    createConnector: () => new GovUkConnector(),
+    rateLimit: { requestsPerMinute: 30 },
+    createConnector: (config?: ConnectorConfig) => new GovUkConnector(config),
   },
 ];
 
-/** Get all registered connectors */
 export function listConnectors(): ConnectorRegistration[] {
   return registrations;
 }
 
-/** Get a connector registration by id */
 export function getConnector(id: string): ConnectorRegistration | undefined {
-  return registrations.find(r => r.id === id);
+  return registrations.find(registration => registration.id === id);
 }
 
-/** Create a connector instance by id */
 export function createConnector(
   id: string,
-  apiKey?: string
+  config?: ConnectorConfig
 ): OpportunityConnector | undefined {
   const registration = getConnector(id);
   if (!registration) return undefined;
-  return registration.createConnector(apiKey);
+  return registration.createConnector(config);
 }
 
-/** Resolve the API key for a connector from environment variables */
-export function resolveApiKey(connectorId: string): string | undefined {
+/** Resolve public identifiers and server-only credentials from environment variables. */
+export function resolveConnectorConfig(connectorId: string): ConnectorConfig {
   switch (connectorId) {
     case "greenhouse":
-      return process.env.GREENHOUSE_API_KEY;
+      return { boardToken: process.env.GREENHOUSE_BOARD_TOKEN };
     case "ashby":
-      return process.env.ASHBY_API_KEY;
+      return { boardName: process.env.ASHBY_BOARD_NAME };
     case "lever":
-      return process.env.LEVER_API_KEY;
+      return { company: process.env.LEVER_COMPANY };
     case "govuk":
-      return undefined;
+      return { apiKey: process.env.GOVUK_API_KEY };
     default:
-      return undefined;
+      return {};
   }
+}
+
+/** Backwards-compatible resolver for callers that only need a secret credential. */
+export function resolveApiKey(connectorId: string): string | undefined {
+  return resolveConnectorConfig(connectorId).apiKey;
 }

@@ -9,6 +9,7 @@
 
 import type {
   CanonicalOpportunity,
+  ConnectorConfig,
   OpportunityConnector,
   SyncOptions,
 } from "./base";
@@ -23,7 +24,7 @@ const greenhouseDepartmentSchema = z.object({
 });
 
 const greenhouseJobSchema = z.object({
-  id: z.string(),
+  id: z.coerce.string(),
   title: z.string(),
   absolute_url: z.string().url(),
   content: z.string(),
@@ -36,11 +37,10 @@ const greenhouseJobSchema = z.object({
 
 const greenhouseResponseSchema = z.object({
   jobs: z.array(greenhouseJobSchema),
+  meta: z.object({ total: z.number().optional() }).optional(),
 });
 
-function mapGreenhouseType(
-  job: z.infer<typeof greenhouseJobSchema>
-): string {
+function mapGreenhouseType(job: z.infer<typeof greenhouseJobSchema>): string {
   const titleLower = job.title.toLowerCase();
   const contentLower = job.content.toLowerCase();
 
@@ -56,22 +56,13 @@ function mapGreenhouseType(
   if (titleLower.includes("trainee") || contentLower.includes("trainee")) {
     return "traineeship";
   }
-  if (
-    titleLower.includes("part-time") ||
-    titleLower.includes("part time")
-  ) {
+  if (titleLower.includes("part-time") || titleLower.includes("part time")) {
     return "part_time";
   }
-  if (
-    titleLower.includes("full-time") ||
-    titleLower.includes("full time")
-  ) {
+  if (titleLower.includes("full-time") || titleLower.includes("full time")) {
     return "full_time";
   }
-  if (
-    titleLower.includes("volunteer") ||
-    contentLower.includes("volunteer")
-  ) {
+  if (titleLower.includes("volunteer") || contentLower.includes("volunteer")) {
     return "volunteering";
   }
   if (
@@ -99,7 +90,7 @@ function stripHtml(html: string): string {
 export class GreenhouseConnector implements OpportunityConnector {
   readonly id = "greenhouse";
   readonly providerName = "Greenhouse Job Board";
-  readonly providerHost = "boards.greenhouse.io";
+  readonly providerHost = "boards-api.greenhouse.io";
   readonly capabilities = {
     supportsPagination: true,
     supportsRateLimitHeaders: false,
@@ -107,13 +98,14 @@ export class GreenhouseConnector implements OpportunityConnector {
   };
   readonly rateLimit = { requestsPerMinute: 60 };
 
-  private readonly boardId: string;
+  private readonly boardToken: string;
 
-  constructor(apiKey?: string) {
-    this.boardId = apiKey ?? process.env.GREENHOUSE_BOARD_ID ?? "";
-    if (!this.boardId) {
+  constructor(config?: ConnectorConfig) {
+    this.boardToken =
+      config?.boardToken ?? process.env.GREENHOUSE_BOARD_TOKEN ?? "";
+    if (!this.boardToken) {
       throw new Error(
-        "Greenhouse connector requires GREENHOUSE_BOARD_ID environment variable"
+        "Greenhouse connector requires GREENHOUSE_BOARD_TOKEN environment variable"
       );
     }
   }
@@ -123,7 +115,7 @@ export class GreenhouseConnector implements OpportunityConnector {
       await this.fetchOpportunities({ sourceId: this.id, pageSize: 1 });
       return {
         ok: true,
-        message: `Connected to Greenhouse board "${this.boardId}"`,
+        message: `Connected to Greenhouse board "${this.boardToken}"`,
       };
     } catch (error) {
       return {
@@ -138,10 +130,10 @@ export class GreenhouseConnector implements OpportunityConnector {
     nextCursor?: string | null;
     hasMore: boolean;
   }> {
-    const page = (options?.cursor ? parseInt(options.cursor, 10) : 1) || 1;
-    const pageSize = options?.pageSize ?? 50;
-    const url = new URL(`https://boards.greenhouse.io/${this.boardId}/jobs`);
-    url.searchParams.set("page", String(page));
+    const url = new URL(
+      `https://boards-api.greenhouse.io/v1/boards/${encodeURIComponent(this.boardToken)}/jobs`
+    );
+    url.searchParams.set("content", "true");
 
     const response = await fetch(url.toString(), {
       headers: {
@@ -211,11 +203,10 @@ export class GreenhouseConnector implements OpportunityConnector {
       };
     });
 
-    const hasMore = items.length === pageSize;
     return {
       items,
-      nextCursor: hasMore ? String(page + 1) : null,
-      hasMore,
+      nextCursor: null,
+      hasMore: false,
     };
   }
 }

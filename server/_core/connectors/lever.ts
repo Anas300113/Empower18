@@ -9,6 +9,7 @@
 
 import type {
   CanonicalOpportunity,
+  ConnectorConfig,
   OpportunityConnector,
   SyncOptions,
 } from "./base";
@@ -39,10 +40,7 @@ function mapLeverType(posting: z.infer<typeof leverPostingSchema>): string {
   const titleLower = posting.title.toLowerCase();
   const descLower = (posting.descriptionPlain ?? "").toLowerCase();
 
-  if (
-    titleLower.includes("apprentice") ||
-    descLower.includes("apprentice")
-  ) {
+  if (titleLower.includes("apprentice") || descLower.includes("apprentice")) {
     return "apprenticeship";
   }
   if (titleLower.includes("intern") || descLower.includes("intern")) {
@@ -51,16 +49,10 @@ function mapLeverType(posting: z.infer<typeof leverPostingSchema>): string {
   if (titleLower.includes("trainee") || descLower.includes("trainee")) {
     return "traineeship";
   }
-  if (
-    titleLower.includes("part-time") ||
-    titleLower.includes("part time")
-  ) {
+  if (titleLower.includes("part-time") || titleLower.includes("part time")) {
     return "part_time";
   }
-  if (
-    titleLower.includes("full-time") ||
-    titleLower.includes("full time")
-  ) {
+  if (titleLower.includes("full-time") || titleLower.includes("full time")) {
     return "full_time";
   }
   if (titleLower.includes("volunteer") || descLower.includes("volunteer")) {
@@ -101,10 +93,12 @@ export class LeverConnector implements OpportunityConnector {
 
   private readonly company: string;
 
-  constructor(apiKey?: string) {
-    this.company = apiKey ?? process.env.LEVER_COMPANY ?? "";
+  constructor(config?: ConnectorConfig) {
+    this.company = config?.company ?? process.env.LEVER_COMPANY ?? "";
     if (!this.company) {
-      throw new Error("Lever connector requires LEVER_COMPANY environment variable");
+      throw new Error(
+        "Lever connector requires LEVER_COMPANY environment variable"
+      );
     }
   }
 
@@ -128,10 +122,12 @@ export class LeverConnector implements OpportunityConnector {
     nextCursor?: string | null;
     hasMore: boolean;
   }> {
-    const offset = (options?.cursor ? parseInt(options.cursor, 10) : 0) || 0;
+    const skip = (options?.cursor ? parseInt(options.cursor, 10) : 0) || 0;
     const pageSize = options?.pageSize ?? 50;
-    const url = new URL(`https://api.lever.co/v0/postings/${this.company}?mode=json`);
-    url.searchParams.set("offset", String(offset));
+    const url = new URL(
+      `https://api.lever.co/v0/postings/${this.company}?mode=json`
+    );
+    url.searchParams.set("skip", String(skip));
     url.searchParams.set("limit", String(pageSize));
 
     const response = await fetch(url.toString(), {
@@ -157,7 +153,8 @@ export class LeverConnector implements OpportunityConnector {
     }
 
     const items: CanonicalOpportunity[] = parsed.data.map(posting => {
-      const rawDescription = posting.descriptionPlain ?? posting.description ?? "";
+      const rawDescription =
+        posting.descriptionPlain ?? posting.description ?? "";
       const description = stripHtml(rawDescription);
       const organisation =
         posting.categories?.department || posting.categories?.team || null;
@@ -184,7 +181,9 @@ export class LeverConnector implements OpportunityConnector {
         salaryMin: null,
         salaryMax: null,
         compensationText: null,
-        applicationOpensAt: posting.createdAt ? new Date(posting.createdAt) : null,
+        applicationOpensAt: posting.createdAt
+          ? new Date(posting.createdAt)
+          : null,
         applicationDeadlineAt: null,
         startDateAt: null,
         expiresAt: posting.updatedAt ? new Date(posting.updatedAt) : null,
@@ -199,7 +198,7 @@ export class LeverConnector implements OpportunityConnector {
     const hasMore = items.length === pageSize;
     return {
       items,
-      nextCursor: hasMore ? String(offset + pageSize) : null,
+      nextCursor: hasMore ? String(skip + pageSize) : null,
       hasMore,
     };
   }
