@@ -62,6 +62,20 @@ function mapGovukLevel(
   }
   return "apprenticeship";
 }
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 export class GovUkConnector implements OpportunityConnector {
   readonly id = "govuk";
   readonly providerName = "GOV.UK Find an Apprenticeship";
@@ -79,7 +93,7 @@ export class GovUkConnector implements OpportunityConnector {
 
   async healthCheck(): Promise<{ ok: boolean; message?: string }> {
     try {
-      const result = await this.fetchOpportunities({ pageSize: 1 });
+      await this.fetchOpportunities({ sourceId: this.id, pageSize: 1 });
       return {
         ok: true,
         message: "Connected to GOV.UK Find an Apprenticeship API",
@@ -142,7 +156,7 @@ export class GovUkConnector implements OpportunityConnector {
       return {
         sourceRecordId: advert.id,
         canonicalUrl: `https://findapprenticeshiptraining.sfa.bis.gov.uk/advert/${advert.id}`,
-        externalApplicationUrl: null,
+        externalApplicationUrl: undefined,
         title: advert.title,
         description: stripHtml(advert.description ?? ""),
         summary:

@@ -29,18 +29,15 @@ const greenhouseJobSchema = z.object({
   content: z.string(),
   location: greenhouseLocationSchema.nullable(),
   departments: z.array(greenhouseDepartmentSchema).optional(),
-  offices: z.array(
-    z.object({ name: z.string().optional() })
-  ).optional(),
+  offices: z.array(z.object({ name: z.string().optional() })).optional(),
   updated_at: z.string().datetime(),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 const greenhouseResponseSchema = z.object({
   jobs: z.array(greenhouseJobSchema),
 });
 
-const greenhouseErrorSchema = z.object({
 function mapGreenhouseType(
   job: z.infer<typeof greenhouseJobSchema>
 ): string {
@@ -53,16 +50,10 @@ function mapGreenhouseType(
   ) {
     return "apprenticeship";
   }
-  if (
-    titleLower.includes("intern") ||
-    contentLower.includes("intern")
-  ) {
+  if (titleLower.includes("intern") || contentLower.includes("intern")) {
     return "internship";
   }
-  if (
-    titleLower.includes("trainee") ||
-    contentLower.includes("trainee")
-  ) {
+  if (titleLower.includes("trainee") || contentLower.includes("trainee")) {
     return "traineeship";
   }
   if (
@@ -90,10 +81,20 @@ function mapGreenhouseType(
     return "work_experience";
   }
   return "work_experience";
+}
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Greenhouse connector implementation
-// ─────────────────────────────────────────────────────────────────────────────
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export class GreenhouseConnector implements OpportunityConnector {
   readonly id = "greenhouse";
@@ -109,8 +110,6 @@ export class GreenhouseConnector implements OpportunityConnector {
   private readonly boardId: string;
 
   constructor(apiKey?: string) {
-    // Greenhouse board API does not require auth for public boards.
-    // apiKey would contain the board identifier if provided via env.
     this.boardId = apiKey ?? process.env.GREENHOUSE_BOARD_ID ?? "";
     if (!this.boardId) {
       throw new Error(
@@ -121,7 +120,7 @@ export class GreenhouseConnector implements OpportunityConnector {
 
   async healthCheck(): Promise<{ ok: boolean; message?: string }> {
     try {
-      const result = await this.fetchOpportunities({ pageSize: 1 });
+      await this.fetchOpportunities({ sourceId: this.id, pageSize: 1 });
       return {
         ok: true,
         message: `Connected to Greenhouse board "${this.boardId}"`,
@@ -141,10 +140,7 @@ export class GreenhouseConnector implements OpportunityConnector {
   }> {
     const page = (options?.cursor ? parseInt(options.cursor, 10) : 1) || 1;
     const pageSize = options?.pageSize ?? 50;
-
-    const url = new URL(
-      `https://boards.greenhouse.io/${this.boardId}/jobs`
-    );
+    const url = new URL(`https://boards.greenhouse.io/${this.boardId}/jobs`);
     url.searchParams.set("page", String(page));
 
     const response = await fetch(url.toString(), {
@@ -162,38 +158,36 @@ export class GreenhouseConnector implements OpportunityConnector {
       );
     }
 
-    const body = await response.json();
-    const parsed = greenhouseResponseSchema.safeParse(body);
+    const parsed = greenhouseResponseSchema.safeParse(await response.json());
     if (!parsed.success) {
       throw new Error(
         `Greenhouse API response validation failed: ${parsed.error.message}`
       );
     }
 
-    const jobs = parsed.data.jobs;
-    const items: CanonicalOpportunity[] = jobs.map(job => {
-      const locationName = job.location?.name ?? null;
-      const departmentNames = job.departments
-        ?.map(d => d.name)
+    const items: CanonicalOpportunity[] = parsed.data.jobs.map(job => {
+      const location = job.location?.name ?? null;
+      const department = job.departments
+        ?.map(department => department.name)
         .filter(Boolean)
         .join(", ");
-      const officeNames = job.offices
-        ?.map(o => o.name)
+      const office = job.offices
+        ?.map(office => office.name)
         .filter(Boolean)
         .join(", ");
-      const organisation = departmentNames || officeNames || null;
+      const description = stripHtml(job.content);
 
       return {
         sourceRecordId: job.id,
         canonicalUrl: job.absolute_url,
         externalApplicationUrl: job.absolute_url,
         title: job.title,
-        description: stripHtml(job.content),
-        summary: stripHtml(job.content).slice(0, 500) || null,
+        description,
+        summary: description.slice(0, 500) || null,
         type: mapGreenhouseType(job),
         category: null,
         route: null,
-        location: locationName,
+        location,
         district: null,
         deliveryMethod: null,
         isRemoteEligible: false,
@@ -210,40 +204,18 @@ export class GreenhouseConnector implements OpportunityConnector {
         startDateAt: null,
         expiresAt: null,
         applicationInstructions: null,
-        organisationName: organisation,
+        organisationName: department || office || null,
         organisationWebsite: null,
         firstSeenAt: new Date(),
         lastSeenAt: new Date(),
       };
     });
 
-    const nextCursor = jobs.length === pageSize ? String(page + 1) : null;
-
+    const hasMore = items.length === pageSize;
     return {
       items,
-      nextCursor,
-      hasMore: jobs.length === pageSize,
+      nextCursor: hasMore ? String(page + 1) : null,
+      hasMore,
     };
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Utility: strip HTML tags from Greenhouse content
-// ─────────────────────────────────────────────────────────────────────────────
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-}
-  error: z.string().optional(),
-  message: z.string().optional(),
-});

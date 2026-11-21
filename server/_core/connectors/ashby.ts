@@ -41,6 +41,58 @@ function mapAshbyType(
 
   if (empType.includes("apprentice") || titleLower.includes("apprentice")) {
     return "apprenticeship";
+  }
+  if (empType.includes("intern") || titleLower.includes("intern")) {
+    return "internship";
+  }
+  if (empType.includes("trainee") || titleLower.includes("trainee")) {
+    return "traineeship";
+  }
+  if (
+    empType.includes("part-time") ||
+    empType.includes("part time") ||
+    titleLower.includes("part-time") ||
+    titleLower.includes("part time")
+  ) {
+    return "part_time";
+  }
+  if (
+    empType.includes("full-time") ||
+    empType.includes("full time") ||
+    titleLower.includes("full-time") ||
+    titleLower.includes("full time")
+  ) {
+    return "full_time";
+  }
+  if (
+    empType.includes("volunteer") ||
+    titleLower.includes("volunteer") ||
+    descLower.includes("volunteer")
+  ) {
+    return "volunteering";
+  }
+  if (
+    empType.includes("work experience") ||
+    titleLower.includes("work experience") ||
+    descLower.includes("work experience")
+  ) {
+    return "work_experience";
+  }
+  return "work_experience";
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export class AshbyConnector implements OpportunityConnector {
   readonly id = "ashby";
@@ -57,10 +109,8 @@ export class AshbyConnector implements OpportunityConnector {
   private readonly apiKey: string | undefined;
 
   constructor(apiKey?: string) {
-    this.apiKey =
-      apiKey ?? process.env.ASHBY_API_KEY;
-    this.boardId =
-      apiKey ?? process.env.ASHBY_BOARD_ID ?? "";
+    this.apiKey = apiKey ?? process.env.ASHBY_API_KEY;
+    this.boardId = apiKey ?? process.env.ASHBY_BOARD_ID ?? "";
     if (!this.boardId) {
       throw new Error(
         "Ashby connector requires ASHBY_BOARD_ID environment variable"
@@ -70,7 +120,7 @@ export class AshbyConnector implements OpportunityConnector {
 
   async healthCheck(): Promise<{ ok: boolean; message?: string }> {
     try {
-      const result = await this.fetchOpportunities({ pageSize: 1 });
+      await this.fetchOpportunities({ sourceId: this.id, pageSize: 1 });
       return {
         ok: true,
         message: `Connected to Ashby board "${this.boardId}"`,
@@ -90,7 +140,6 @@ export class AshbyConnector implements OpportunityConnector {
   }> {
     const cursor = options?.cursor ?? null;
     const pageSize = options?.pageSize ?? 50;
-
     const body = {
       jobPostingBoardId: this.boardId,
       cursor,
@@ -106,19 +155,6 @@ export class AshbyConnector implements OpportunityConnector {
         "Content-Type": "application/json",
         "access-token": this.apiKey ?? "",
         "User-Agent": "Empower18/1.0 (https://empower18.vercel.app)",
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
@@ -139,21 +175,17 @@ function stripHtml(html: string): string {
       );
     }
 
-    const postings = parsed.data.jobPostings;
-    const items: CanonicalOpportunity[] = postings.map(posting => {
-      const organisation =
-        posting.departmentName || posting.location || null;
+    const items: CanonicalOpportunity[] = parsed.data.jobPostings.map(posting => {
+      const description = stripHtml(posting.description ?? "");
+      const organisation = posting.departmentName || posting.location || null;
 
       return {
         sourceRecordId: posting.id,
         canonicalUrl: posting.applyUrl ?? "",
         externalApplicationUrl: posting.applyUrl ?? undefined,
         title: posting.title,
-        description: stripHtml(posting.description ?? ""),
-        summary:
-          posting.description != null
-            ? stripHtml(posting.description).slice(0, 500) || null
-            : null,
+        description,
+        summary: description.slice(0, 500) || null,
         type: mapAshbyType(posting),
         category: null,
         route: null,
@@ -169,14 +201,10 @@ function stripHtml(html: string): string {
         salaryMin: null,
         salaryMax: null,
         compensationText: null,
-        applicationOpensAt: posting.publishedAt
-          ? new Date(posting.publishedAt)
-          : null,
+        applicationOpensAt: posting.publishedAt ? new Date(posting.publishedAt) : null,
         applicationDeadlineAt: null,
         startDateAt: null,
-        expiresAt: posting.updatedAt
-          ? new Date(posting.updatedAt)
-          : null,
+        expiresAt: posting.updatedAt ? new Date(posting.updatedAt) : null,
         applicationInstructions: null,
         organisationName: organisation,
         organisationWebsite: null,
@@ -186,35 +214,6 @@ function stripHtml(html: string): string {
     });
 
     const nextCursor = parsed.data.nextCursor;
-
-    return {
-      items,
-      nextCursor,
-      hasMore: !!nextCursor,
-    };
+    return { items, nextCursor, hasMore: Boolean(nextCursor) };
   }
-}
-  }
-  if (empType.includes("intern") || titleLower.includes("intern")) {
-    return "internship";
-  }
-  if (empType.includes("trainee") || titleLower.includes("trainee")) {
-    return "traineeship";
-  }
-  if (empType.includes("part-time") || titleLower.includes("part-time")) {
-    return "part_time";
-  }
-  if (empType.includes("full-time") || titleLower.includes("full-time")) {
-    return "full_time";
-  }
-  if (empType.includes("volunteer") || titleLower.includes("volunteer")) {
-    return "volunteering";
-  }
-  if (
-    empType.includes("work experience") ||
-    titleLower.includes("work experience")
-  ) {
-    return "work_experience";
-  }
-  return "work_experience";
 }

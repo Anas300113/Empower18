@@ -20,11 +20,13 @@ const leverPostingSchema = z.object({
   title: z.string(),
   descriptionPlain: z.string().nullable(),
   description: z.string().nullable(),
-  categories: z.object({
-    location: z.string().nullable(),
-    department: z.string().nullable(),
-    team: z.string().nullable(),
-  }).nullable(),
+  categories: z
+    .object({
+      location: z.string().nullable(),
+      department: z.string().nullable(),
+      team: z.string().nullable(),
+    })
+    .nullable(),
   location: z.string().nullable(),
   applyUrl: z.string().url().nullable(),
   updatedAt: z.number().nullable(),
@@ -33,9 +35,7 @@ const leverPostingSchema = z.object({
 
 const leverResponseSchema = z.array(leverPostingSchema);
 
-function mapLeverType(
-  posting: z.infer<typeof leverPostingSchema>
-): string {
+function mapLeverType(posting: z.infer<typeof leverPostingSchema>): string {
   const titleLower = posting.title.toLowerCase();
   const descLower = (posting.descriptionPlain ?? "").toLowerCase();
 
@@ -43,6 +43,50 @@ function mapLeverType(
     titleLower.includes("apprentice") ||
     descLower.includes("apprentice")
   ) {
+    return "apprenticeship";
+  }
+  if (titleLower.includes("intern") || descLower.includes("intern")) {
+    return "internship";
+  }
+  if (titleLower.includes("trainee") || descLower.includes("trainee")) {
+    return "traineeship";
+  }
+  if (
+    titleLower.includes("part-time") ||
+    titleLower.includes("part time")
+  ) {
+    return "part_time";
+  }
+  if (
+    titleLower.includes("full-time") ||
+    titleLower.includes("full time")
+  ) {
+    return "full_time";
+  }
+  if (titleLower.includes("volunteer") || descLower.includes("volunteer")) {
+    return "volunteering";
+  }
+  if (
+    titleLower.includes("work experience") ||
+    descLower.includes("work experience")
+  ) {
+    return "work_experience";
+  }
+  return "work_experience";
+}
+
+function stripHtml(html: string): string {
+  return html
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 export class LeverConnector implements OpportunityConnector {
   readonly id = "lever";
@@ -60,15 +104,13 @@ export class LeverConnector implements OpportunityConnector {
   constructor(apiKey?: string) {
     this.company = apiKey ?? process.env.LEVER_COMPANY ?? "";
     if (!this.company) {
-      throw new Error(
-        "Lever connector requires LEVER_COMPANY environment variable"
-      );
+      throw new Error("Lever connector requires LEVER_COMPANY environment variable");
     }
   }
 
   async healthCheck(): Promise<{ ok: boolean; message?: string }> {
     try {
-      const result = await this.fetchOpportunities({ pageSize: 1 });
+      await this.fetchOpportunities({ sourceId: this.id, pageSize: 1 });
       return {
         ok: true,
         message: `Connected to Lever company "${this.company}"`,
@@ -88,10 +130,7 @@ export class LeverConnector implements OpportunityConnector {
   }> {
     const offset = (options?.cursor ? parseInt(options.cursor, 10) : 0) || 0;
     const pageSize = options?.pageSize ?? 50;
-
-    const url = new URL(
-      `https://api.lever.co/v0/postings/${this.company}?mode=json`
-    );
+    const url = new URL(`https://api.lever.co/v0/postings/${this.company}?mode=json`);
     url.searchParams.set("offset", String(offset));
     url.searchParams.set("limit", String(pageSize));
 
@@ -106,48 +145,30 @@ export class LeverConnector implements OpportunityConnector {
     if (!response.ok) {
       const errorBody = await response.text().catch(() => "");
       throw new Error(
-
-function stripHtml(html: string): string {
-  return html
-    .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/\s+/g, " ")
-    .trim();
-}
         `Lever API returned ${response.status}: ${errorBody.slice(0, 200)}`
       );
     }
 
-    const rawBody = await response.json();
-    const parsed = leverResponseSchema.safeParse(rawBody);
+    const parsed = leverResponseSchema.safeParse(await response.json());
     if (!parsed.success) {
       throw new Error(
         `Lever API response validation failed: ${parsed.error.message}`
       );
     }
 
-    const postings = parsed.data;
-    const items: CanonicalOpportunity[] = postings.map(posting => {
+    const items: CanonicalOpportunity[] = parsed.data.map(posting => {
+      const rawDescription = posting.descriptionPlain ?? posting.description ?? "";
+      const description = stripHtml(rawDescription);
       const organisation =
-        posting.categories?.department ||
-        posting.categories?.team ||
-        null;
+        posting.categories?.department || posting.categories?.team || null;
 
       return {
         sourceRecordId: posting.id,
         canonicalUrl: posting.applyUrl ?? "",
         externalApplicationUrl: posting.applyUrl ?? undefined,
         title: posting.title,
-        description: stripHtml(posting.descriptionPlain ?? posting.description ?? ""),
-        summary:
-          posting.descriptionPlain ?? posting.description
-            ? stripHtml(posting.descriptionPlain ?? posting.description ?? "").slice(0, 500) || null
-            : null,
+        description,
+        summary: description.slice(0, 500) || null,
         type: mapLeverType(posting),
         category: null,
         route: null,
@@ -163,14 +184,10 @@ function stripHtml(html: string): string {
         salaryMin: null,
         salaryMax: null,
         compensationText: null,
-        applicationOpensAt: posting.createdAt
-          ? new Date(posting.createdAt)
-          : null,
+        applicationOpensAt: posting.createdAt ? new Date(posting.createdAt) : null,
         applicationDeadlineAt: null,
         startDateAt: null,
-        expiresAt: posting.updatedAt
-          ? new Date(posting.updatedAt)
-          : null,
+        expiresAt: posting.updatedAt ? new Date(posting.updatedAt) : null,
         applicationInstructions: null,
         organisationName: organisation,
         organisationWebsite: null,
@@ -179,37 +196,11 @@ function stripHtml(html: string): string {
       };
     });
 
-    const nextCursor = postings.length === pageSize ? String(offset + pageSize) : null;
-
+    const hasMore = items.length === pageSize;
     return {
       items,
-      nextCursor,
-      hasMore: postings.length === pageSize,
+      nextCursor: hasMore ? String(offset + pageSize) : null,
+      hasMore,
     };
   }
-}
-    return "apprenticeship";
-  }
-  if (titleLower.includes("intern") || descLower.includes("intern")) {
-    return "internship";
-  }
-  if (titleLower.includes("trainee") || descLower.includes("trainee")) {
-    return "traineeship";
-  }
-  if (titleLower.includes("part-time") || titleLower.includes("part time")) {
-    return "part_time";
-  }
-  if (titleLower.includes("full-time") || titleLower.includes("full time")) {
-    return "full_time";
-  }
-  if (titleLower.includes("volunteer") || descLower.includes("volunteer")) {
-    return "volunteering";
-  }
-  if (
-    titleLower.includes("work experience") ||
-    descLower.includes("work experience")
-  ) {
-    return "work_experience";
-  }
-  return "work_experience";
 }
