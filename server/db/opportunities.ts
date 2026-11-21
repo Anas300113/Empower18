@@ -202,7 +202,7 @@ export async function listPublishedOpportunities(
   ]).catch(error => {
     const outer = error as { name?: unknown; cause?: unknown } | null;
     const cause = outer?.cause as
-      | { name?: unknown; code?: unknown; message?: unknown }
+      | { name?: unknown; code?: unknown; message?: unknown; stack?: unknown }
       | undefined;
     const message =
       typeof cause?.message === "string"
@@ -212,11 +212,21 @@ export async function listPublishedOpportunities(
             .replace(/[\r\n\t]+/g, " ")
             .slice(0, 240)
         : undefined;
+    const causeStack =
+      typeof cause?.stack === "string"
+        ? cause.stack
+            .split(/\r?\n/)
+            .slice(1, 5)
+            .map(frame => frame.trim().slice(0, 180))
+            .join(" | ")
+            .slice(0, 600)
+        : undefined;
     console.error("[Database] opportunities.list query failed", {
       errorName: typeof outer?.name === "string" ? outer.name : "Error",
       causeName: typeof cause?.name === "string" ? cause.name : undefined,
       code: typeof cause?.code === "string" ? cause.code : undefined,
       message,
+      causeStack,
     });
     throw error;
   });
