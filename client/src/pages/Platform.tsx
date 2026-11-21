@@ -1,5 +1,5 @@
-import { QueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { careers, notifications, supportItems } from "@/data";
 import { trpc } from "@/lib/trpc";
 import {
   ArrowDownUp,
@@ -70,17 +70,9 @@ function PlatformShell({
 }) {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
-  const profileQuery = trpc.profile.me.useQuery(undefined, {
-    enabled: Boolean(user),
-    retry: false,
-  });
-  const opportunitiesQuery = trpc.opportunities.list.useQuery(undefined, {
-    enabled: Boolean(user),
-    retry: false,
-  });
-  const profileLoading = Boolean(user) && profileQuery.isLoading;
-  const opportunitiesLoading = Boolean(user) && opportunitiesQuery.isLoading;
   const [mobileMenu, setMobileMenu] = useState(false);
+  const displayName =
+    user?.user_metadata?.name ?? user?.email?.split("@")[0] ?? "there";
   const activePath = location.startsWith("/opportunities")
     ? "/opportunities"
     : location;
@@ -117,11 +109,10 @@ function PlatformShell({
               );
             })}
           </nav>
-</nav>
           <div className="platform-header-accent">
-            {user?.name && (
+            {displayName && (
               <span className="user-name">
-                Hello, {user.name}
+                Hello, {displayName}
               </span>
             )}
           </div>
