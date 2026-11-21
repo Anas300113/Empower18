@@ -9,6 +9,7 @@ import {
   ilike,
   inArray,
   isNull,
+  isNotNull,
   lte,
   lt,
   ne,
@@ -75,18 +76,24 @@ export type OpportunityListFilters = {
 
 export class PublicationValidationError extends Error {}
 
-function activePublishedConditions(now = new Date()) {
+export function activePublishedConditions(now = new Date()) {
   return and(
     eq(opportunities.status, "published"),
     eq(opportunities.isPublished, true),
-    sql`(${opportunities.expiresAt} IS NULL OR ${opportunities.expiresAt} > ${now})`,
-    sql`(${opportunities.applicationDeadlineAt} IS NULL OR ${opportunities.applicationDeadlineAt} >= ${now})`,
+    or(isNull(opportunities.expiresAt), gt(opportunities.expiresAt, now)),
+    or(
+      isNull(opportunities.applicationDeadlineAt),
+      gte(opportunities.applicationDeadlineAt, now)
+    ),
     sql`${opportunities.sourceId} IS NOT NULL`,
     sql`${opportunities.canonicalUrl} IS NOT NULL`,
     sql`${opportunities.verifiedBy} IS NOT NULL`,
     sql`${opportunities.verifiedAt} IS NOT NULL`,
     sql`${opportunities.verificationEvidence} IS NOT NULL`,
-    sql`${opportunities.nextReviewAt} IS NOT NULL AND ${opportunities.nextReviewAt} >= ${now}`
+    and(
+      isNotNull(opportunities.nextReviewAt),
+      gte(opportunities.nextReviewAt, now)
+    )
   );
 }
 
