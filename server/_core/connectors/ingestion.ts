@@ -1,7 +1,9 @@
-import { and, eq, notInArray } from "drizzle-orm";
+import { and, eq, ilike, notInArray } from "drizzle-orm";
 import {
   opportunities,
+  opportunityOrganisations,
   opportunitySources,
+  organisations,
   type Opportunity,
   type OpportunitySource,
 } from "../../../drizzle/schema";
@@ -172,6 +174,28 @@ export async function syncOpportunitySource(
             })
             .returning({ id: opportunities.id });
           if (inserted.length === 1) {
+            if (item.organisationName) {
+              const [organisation] = await tx
+                .select()
+                .from(organisations)
+                .where(ilike(organisations.name, item.organisationName))
+                .limit(1);
+              const [createdOrganisation] = organisation
+                ? [organisation]
+                : await tx
+                    .insert(organisations)
+                    .values({
+                      name: item.organisationName,
+                      website: item.organisationWebsite ?? null,
+                      type: "employer",
+                    })
+                    .returning();
+              await tx.insert(opportunityOrganisations).values({
+                opportunityId: inserted[0].id,
+                organisationId: createdOrganisation.id,
+                role: "employer",
+              });
+            }
             insertedCount += 1;
             continue;
           }
@@ -214,6 +238,12 @@ export async function syncOpportunitySource(
                     nextReviewAt: null,
                   }
                 : {}),
+              ...(existing && ["closed", "paused"].includes(existing.status)
+                ? {
+                    status: "pending_review" as const,
+                    isPublished: false,
+                  }
+                : {}),
             })
             .where(
               and(
@@ -222,10 +252,30 @@ export async function syncOpportunitySource(
               )
             );
           updatedCount += 1;
+          if (existing && item.organisationName) {
+            const [organisation] = await tx
+              .select()
+              .from(organisations)
+              .where(ilike(organisations.name, item.organisationName))
+              .limit(1);
+            if (organisation) {
+              await tx
+                .delete(opportunityOrganisations)
+                .where(eq(opportunityOrganisations.opportunityId, existing.id));
+              await tx.insert(opportunityOrganisations).values({
+                opportunityId: existing.id,
+                organisationId: organisation.id,
+                role: "employer",
+              });
+            }
+          }
         }
       });
 
-      if (!page.hasMore || !page.nextCursor) break;
+      if (!page.hasMore || !page.nextCursor) {
+        cursor = null;
+        break;
+      }
       cursor = page.nextCursor;
     }
 

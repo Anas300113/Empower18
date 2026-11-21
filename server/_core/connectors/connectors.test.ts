@@ -95,21 +95,51 @@ describe("opportunity connector API contracts", () => {
     const request = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
-          vacancies: [],
-          total: 0,
-          totalFiltered: 0,
-          totalPages: 0,
+          vacancies: [
+            {
+              vacancyReference: "UK-123",
+              title: "Engineering apprentice",
+              fullDescription: "<p>Full advert description</p>",
+              vacancyUrl:
+                "https://www.findapprenticeship.service.gov.uk/v/UK-123",
+              applicationUrl: "https://apply.example/UK-123",
+              employerName: "Example Engineering",
+              employerWebsiteUrl: "https://example.org",
+              addressLine1: "1 High Street",
+              addressLine4: "Warwickshire",
+              postcode: "CV1 1AA",
+              wageAmount: 18000,
+              wageUnit: "Annually",
+              wageAdditionalInformation: "Plus benefits",
+              apprenticeshipLevel: "Level 3",
+              workingWeekDescription: "Monday to Friday",
+            },
+          ],
+          total: 1,
+          totalFiltered: 1,
+          totalPages: 1,
         })
       )
     );
     vi.stubGlobal("fetch", request);
 
-    await new GovUkConnector({ apiKey: "test-key" }).fetchOpportunities();
+    const result = await new GovUkConnector({
+      apiKey: "test-key",
+    }).fetchOpportunities();
 
     expect(String(request.mock.calls[0][0])).toContain("/vacancies/vacancy");
     expect(request.mock.calls[0][1].headers).toMatchObject({
       "Ocp-Apim-Subscription-Key": "test-key",
       "X-Version": "2",
     });
+    expect(result.items[0]).toMatchObject({
+      sourceRecordId: "UK-123",
+      canonicalUrl: "https://www.findapprenticeship.service.gov.uk/v/UK-123",
+      externalApplicationUrl: "https://apply.example/UK-123",
+      organisationName: "Example Engineering",
+      qualificationRequirements: "Level 3",
+    });
+    expect(result.items[0].description).toBe("Full advert description");
+    expect(result.items[0].compensationText).toContain("Plus benefits");
   });
 });

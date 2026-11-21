@@ -114,7 +114,11 @@ export async function handleOpportunitySync(
     const syncResults = await syncActiveOpportunitySources({
       maxPages: Number(process.env.OPPORTUNITY_SYNC_MAX_PAGES ?? 100),
     });
-    return { status: 200, body: { syncResults } };
+    const failed = syncResults.some(result => result.status === "failed");
+    return {
+      status: syncResults.length === 0 ? 503 : failed ? 502 : 200,
+      body: { syncResults },
+    };
   } catch (error) {
     console.error("Opportunity ingestion maintenance failed", error);
     return { status: 500, body: { error: "Opportunity sync failed" } };

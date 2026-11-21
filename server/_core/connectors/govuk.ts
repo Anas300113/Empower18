@@ -1,7 +1,3 @@
-// ─────────────────────────────────────────────────────────────────────────────
-// GOV.UK Find an Apprenticeship Display Advert Connector (API v2)
-// ─────────────────────────────────────────────────────────────────────────────
-
 import type {
   CanonicalOpportunity,
   ConnectorConfig,
@@ -11,31 +7,28 @@ import type {
 import { z } from "zod";
 
 const dateValue = z.string().datetime({ offset: true }).nullable().optional();
-const govukAddressSchema = z.object({
-  addressLine1: z.string().nullable().optional(),
-  addressLine2: z.string().nullable().optional(),
-  town: z.string().nullable().optional(),
-  county: z.string().nullable().optional(),
-  postcode: z.string().nullable().optional(),
-});
-const govukWageSchema = z.object({
-  amount: z.number().nullable().optional(),
-  amountText: z.string().nullable().optional(),
-  unit: z.string().nullable().optional(),
-  type: z.string().nullable().optional(),
-});
+const amountValue = z.union([z.number(), z.string()]).nullable().optional();
 const govukVacancySchema = z.object({
   vacancyReference: z.string(),
   title: z.string(),
+  fullDescription: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
+  vacancyUrl: z.string().url().nullable().optional(),
+  applicationUrl: z.string().url().nullable().optional(),
   employerName: z.string().nullable().optional(),
   employerWebsiteUrl: z.string().url().nullable().optional(),
-  addresses: z.array(govukAddressSchema).optional(),
-  wage: govukWageSchema.nullable().optional(),
+  addressLine1: z.string().nullable().optional(),
+  addressLine2: z.string().nullable().optional(),
+  addressLine3: z.string().nullable().optional(),
+  addressLine4: z.string().nullable().optional(),
+  postcode: z.string().nullable().optional(),
+  wageAmount: amountValue,
+  wageUnit: z.string().nullable().optional(),
+  wageAdditionalInformation: z.string().nullable().optional(),
   closingDate: dateValue,
   startDate: dateValue,
-  level: z.string().nullable().optional(),
-  duration: z.string().nullable().optional(),
+  apprenticeshipLevel: z.string().nullable().optional(),
+  workingWeekDescription: z.string().nullable().optional(),
 });
 const govukResponseSchema = z.object({
   vacancies: z.array(govukVacancySchema),
@@ -125,25 +118,36 @@ export class GovUkConnector implements OpportunityConnector {
       );
 
     const items: CanonicalOpportunity[] = parsed.data.vacancies.map(vacancy => {
-      const address = vacancy.addresses?.[0];
       const location =
-        [address?.town, address?.county, address?.postcode]
+        [
+          vacancy.addressLine1,
+          vacancy.addressLine2,
+          vacancy.addressLine3,
+          vacancy.addressLine4,
+          vacancy.postcode,
+        ]
           .filter(Boolean)
           .join(", ") || null;
-      const description = stripHtml(vacancy.description ?? "");
-      const wage = vacancy.wage;
-      const compensationText = wage
-        ? [
-            wage.amountText,
-            wage.amount != null ? String(wage.amount) : null,
-            wage.unit,
-          ]
-            .filter(Boolean)
-            .join(" ") || null
-        : null;
+      const description = stripHtml(
+        vacancy.fullDescription ?? vacancy.description ?? ""
+      );
+      const amount =
+        vacancy.wageAmount == null ? null : Number(vacancy.wageAmount);
+      const compensationText =
+        [
+          vacancy.wageAmount,
+          vacancy.wageUnit,
+          vacancy.wageAdditionalInformation,
+          vacancy.workingWeekDescription,
+        ]
+          .filter(Boolean)
+          .join(" ") || null;
       return {
         sourceRecordId: vacancy.vacancyReference,
-        canonicalUrl: `https://www.findapprenticeship.service.gov.uk/apprenticeship/${vacancy.vacancyReference}`,
+        canonicalUrl:
+          vacancy.vacancyUrl ??
+          `https://www.findapprenticeship.service.gov.uk/apprenticeship/${vacancy.vacancyReference}`,
+        externalApplicationUrl: vacancy.applicationUrl ?? undefined,
         title: vacancy.title,
         description,
         summary: description.slice(0, 500) || null,
@@ -151,15 +155,15 @@ export class GovUkConnector implements OpportunityConnector {
         category: null,
         route: "Apprenticeship",
         location,
-        district: address?.county ?? null,
+        district: vacancy.addressLine4 ?? null,
         deliveryMethod: null,
         isRemoteEligible: false,
         minAge: null,
         maxAge: null,
         educationRequirements: null,
-        qualificationRequirements: vacancy.level ?? null,
+        qualificationRequirements: vacancy.apprenticeshipLevel ?? null,
         requiredSkills: [],
-        salaryMin: wage?.amount ?? null,
+        salaryMin: Number.isFinite(amount) ? amount : null,
         salaryMax: null,
         compensationText,
         applicationOpensAt: null,
