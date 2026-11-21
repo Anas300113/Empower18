@@ -5,7 +5,7 @@ import postgres from "postgres";
 // Connection configuration
 //
 // Two distinct connection strings are supported:
-//   DATABASE_URL          — runtime connection (Supabase session pooler, port 6543)
+//   DATABASE_URL          — runtime connection (Supabase transaction pooler, port 6543)
 //   MIGRATION_DATABASE_URL— direct connection for migrations (port 5432)
 //
 // The runtime pool is sized for the Express server. Migrations use a separate
@@ -27,6 +27,9 @@ function makePool(url: string) {
     max: POOL_MAX,
     idle_timeout: IDLE_TIMEOUT,
     connect_timeout: CONNECT_TIMEOUT,
+    // Supabase transaction pooling does not support named prepared statements.
+    prepare: false,
+    ...(process.env.VERCEL ? { ssl: "require" as const } : {}),
   });
 }
 
