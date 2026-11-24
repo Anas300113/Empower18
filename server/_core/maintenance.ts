@@ -99,7 +99,8 @@ export function registerMaintenanceRoutes(
 export async function handleOpportunitySync(
   authorization: string | undefined
 ): Promise<MaintenanceResult> {
-  const expectedSecret = process.env.OPPORTUNITY_SYNC_SECRET;
+  const expectedSecret =
+    process.env.OPPORTUNITY_SYNC_SECRET || process.env.OPPORTUNITY_EXPIRY_SECRET;
   if (!expectedSecret || expectedSecret.length < 32)
     return { status: 503, body: { error: "Sync endpoint is not configured" } };
   const match = /^Bearer\s+(.+)$/i.exec(authorization ?? "");

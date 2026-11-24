@@ -14,14 +14,37 @@ jobs:
     steps:
       - name: Trigger production opportunity sync
         env:
-          SYNC_URL: ${{ secrets.OPPORTUNITY_SYNC_URL }}
-          SYNC_SECRET: ${{ secrets.OPPORTUNITY_SYNC_SECRET }}
+          # Keep the deployment target in source control; it is not secret and
+          # the old OPPORTUNITY_SYNC_URL secret was never configured.
+          SYNC_URL: https://empower18.vercel.app
+          # Prefer the dedicated secret, but support the existing maintenance
+          # secret so deployments do not need two copies of the same credential.
+          SYNC_SECRET: ${{ secrets.OPPORTUNITY_SYNC_SECRET || secrets.OPPORTUNITY_EXPIRY_SECRET }}
         run: |
           set -euo pipefail
-          test -n "$SYNC_URL"
-          test -n "$SYNC_SECRET"
-          curl --fail-with-body --silent --show-error \
-            --request POST \
-            --header "Authorization: Bearer $SYNC_SECRET" \
-            --header "Content-Type: application/json" \
-            "$SYNC_URL/api/maintenance/opportunities/sync"
+          if [[ -z "$SYNC_SECRET" ]]; then
+            echo "::error title=Opportunity sync is not configured::Set the OPPORTUNITY_SYNC_SECRET repository secret, or reuse OPPORTUNITY_EXPIRY_SECRET. The value must match the production Vercel secret and be at least 32 characters."
+            exit 1
+          fi
+
+          response_file="$RUNNER_TEMP/opportunity-sync-response.json"
+          http_status="$({
+            curl --silent --show-error --retry 3 --retry-delay 5 \
+              --connect-timeout 15 --max-time 120 \
+              --request POST \
+              --header "Authorization: Bearer $SYNC_SECRET" \
+              --header "Content-Type: application/json" \
+              --output "$response_file" \
+              --write-out '%{http_code}' \
+              "$SYNC_URL/api/maintenance/opportunities/sync"
+          })"
+
+          echo "Opportunity sync HTTP status: $http_status"
+          cat "$response_file"
+          echo
+          if [[ "$http_status" -lt 200 || "$http_status" -ge 300 ]]; then
+            echo "::error title=Opportunity sync failed::Production returned HTTP $http_status; see the response above."
+            exit 1
+          fi
+
+          echo "Opportunity sync completed successfully."
