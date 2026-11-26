@@ -120,18 +120,18 @@ export async function syncOpportunitySource(
   let cursor: string | null | undefined = null;
   let pages = 0;
 
-  const connector = createConnector(
-    connectorId,
-    resolveConnectorConfig(
-      connectorId,
-      (source.connectorConfig ?? {}) as Record<string, string>
-    )
-  );
-  if (!connector) {
-    throw new Error(`No connector registered for source ${source.id}`);
-  }
-
   try {
+    const connector = createConnector(
+      connectorId,
+      resolveConnectorConfig(
+        connectorId,
+        (source.connectorConfig ?? {}) as Record<string, string>
+      )
+    );
+    if (!connector) {
+      throw new Error(`No connector registered for source ${source.id}`);
+    }
+
     const maxPages = options.maxPages ?? DEFAULT_MAX_PAGES;
     const pageSize = options.pageSize ?? DEFAULT_PAGE_SIZE;
     const syncOptions: SyncOptions = {
