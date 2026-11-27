@@ -117,7 +117,9 @@ export async function handleOpportunitySync(
     });
     const failed = syncResults.some(result => result.status === "failed");
     return {
-      status: syncResults.length === 0 ? 503 : failed ? 502 : 200,
+      // No active sources is an intentional idle state while providers are
+      // being configured, not a failed request that should page the scheduler.
+      status: failed ? 502 : 200,
       body: { syncResults },
     };
   } catch (error) {

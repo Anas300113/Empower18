@@ -153,6 +153,25 @@ describe("Opportunity expiry maintenance endpoint", () => {
 });
 
 describe("Opportunity sync maintenance endpoint", () => {
+  it("treats having no active sources as an intentional no-op", async () => {
+    vi.stubEnv("OPPORTUNITY_SYNC_SECRET", SECRET);
+    mocks.syncActiveOpportunitySources.mockResolvedValue([]);
+    const { server, url } = await startTestServer();
+    try {
+      const response = await fetch(
+        `${url}/api/maintenance/opportunities/sync`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${SECRET}` },
+        }
+      );
+      expect(response.status).toBe(200);
+      expect(await response.json()).toEqual({ syncResults: [] });
+    } finally {
+      await stopTestServer(server);
+    }
+  });
+
   it("accepts the existing maintenance secret when a dedicated sync secret is absent", async () => {
     vi.stubEnv("OPPORTUNITY_SYNC_SECRET", "");
     mocks.syncActiveOpportunitySources.mockResolvedValue([
